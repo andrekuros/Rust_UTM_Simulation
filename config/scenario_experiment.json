@@ -1,0 +1,35 @@
+{
+  "drones": [
+    {
+      "id": "UAV_000",
+      "performance": { "mass_kg": 1.5, "max_speed_mps": 20.0, "battery_discharge_rate": 10.0 },
+      "flight_plan": { "waypoints": [[-500.0, 100.0, -500.0], [0.0, 100.0, 0.0], [0.0, 0.0, 0.0]], "current_waypoint_index": 0 },
+      "departure_time_s": 0.0
+    },
+    {
+      "id": "UAV_001",
+      "performance": { "mass_kg": 1.5, "max_speed_mps": 18.0, "battery_discharge_rate": 10.0 },
+      "flight_plan": { "waypoints": [[500.0, 100.0, -500.0], [0.0, 100.0, 0.0], [0.0, 0.0, 0.0]], "current_waypoint_index": 0 },
+      "departure_time_s": 15.0
+    },
+    {
+      "id": "UAV_002",
+      "performance": { "mass_kg": 1.5, "max_speed_mps": 22.0, "battery_discharge_rate": 10.0 },
+      "flight_plan": { "waypoints": [[-500.0, 150.0, 500.0], [0.0, 150.0, 0.0], [0.0, 0.0, 0.0]], "current_waypoint_index": 0 },
+      "departure_time_s": 30.0
+    },
+    {
+      "id": "UAV_003",
+      "performance": { "mass_kg": 1.5, "max_speed_mps": 25.0, "battery_discharge_rate": 10.0 },
+      "flight_plan": { "waypoints": [[500.0, 120.0, 500.0], [0.0, 120.0, 0.0], [0.0, 0.0, 0.0]], "current_waypoint_index": 0 },
+      "departure_time_s": 45.0
+    }
+  ],
+  "obstacles": [
+    { "id": "NFZ_01", "geometry_type": "Box", "dimensions": [200.0, 80.0, 200.0], "position": [0.0, 40.0, -200.0] }
+  ],
+  "departure_landing_zones": [
+    { "name": "zone_north", "min": [-600.0, 400.0], "max": [-400.0, 600.0] },
+    { "name": "zone_center", "min": [-50.0, -50.0], "max": [50.0, 50.0], "height_max": 30.0 }
+  ]
+}

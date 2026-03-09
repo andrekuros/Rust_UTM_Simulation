@@ -1,0 +1,6 @@
+{
+    "num_drones_simulated": 500,
+    "total_unique_collisions": 29224,
+    "total_distance_m": 1814766.5425070988,
+    "average_flight_time_s": 3503.7774390243903
+}

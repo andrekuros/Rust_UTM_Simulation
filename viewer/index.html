@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UTM Simulation Viewer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: sans-serif;
+            background-color: #222;
+            color: #fff;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #ui {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        input[type="range"] {
+            flex-grow: 1;
+        }
+
+        button {
+            padding: 8px 16px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        #timeDisplay {
+            min-width: 60px;
+            font-variant-numeric: tabular-nums;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="canvas-container"></div>
+
+    <div id="controls">
+        <h3>UTM Telemetry Viewer</h3>
+        <input type="file" id="fileInput" accept=".json">
+        <div id="status" style="margin-top: 10px; font-size: 0.9em; color: #aaa;">Please load simulation_telemetry.json
+        </div>
+    </div>
+
+    <div id="ui" style="display: none;">
+        <button id="playBtn">Play</button>
+        <div style="display: flex; flex-direction: column; flex-grow: 1;">
+            <input type="range" id="timeline" min="0" max="100" value="0" step="0.1">
+            <div id="timeDisplay" style="font-size: 0.8em; margin-top: 5px;">0.0s / 0.0s</div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 5px;">
+            <label style="font-size: 0.8em;">Speed:</label>
+            <select id="playSpeed" style="background: #333; color: white; border: 1px solid #555;">
+                <option value="0.5">0.5x</option>
+                <option value="1" selected>1x</option>
+                <option value="2">2x</option>
+                <option value="5">5x</option>
+                <option value="10">10x</option>
+            </select>
+        </div>
+        <div style="display: flex; align-items: center; gap: 5px; margin-left: 10px;">
+            <input type="checkbox" id="showSuggestions" checked>
+            <label style="font-size: 0.8em;" for="showSuggestions">Show DAIDALUS Suggestions</label>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. Three.js Setup ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x050505);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 50000);
+        camera.position.set(2000, 2000, 2000);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+
+        // Visual Aids
+        const gridHelper = new THREE.GridHelper(10000, 100, 0x222222, 0x111111);
+        scene.add(gridHelper);
+        scene.add(new THREE.AmbientLight(0x666666));
+        const sun = new THREE.DirectionalLight(0xffffff, 0.8);
+        sun.position.set(5000, 10000, 5000);
+        scene.add(sun);
+
+        // --- 2. Data State ---
+        let times = [];
+        let droneTimelines = new Map(); // drone_id -> array of { t, pos, alerts }
+        let droneObjects = new Map();
+        let metadata = null;
+        let padObjects = [];
+        let isPlaying = false;
+        let currentTime = 0;
+        let totalTime = 0;
+        let playbackSpeed = 1;
+        let clock = new THREE.Clock();
+
+        // Procedural Quadcopter Model
+        function createQuadcopter() {
+            const group = new THREE.Group();
+
+            const body = new THREE.Mesh(
+                new THREE.BoxGeometry(20, 5, 20),
+                new THREE.MeshLambertMaterial({ color: 0x333333 })
+            );
+            group.add(body);
+
+            const armGeom = new THREE.BoxGeometry(40, 2, 2);
+            const armMat = new THREE.MeshLambertMaterial({ color: 0x555555 });
+
+            const arm1 = new THREE.Mesh(armGeom, armMat);
+            arm1.rotation.y = Math.PI / 4;
+            group.add(arm1);
+
+            const arm2 = new THREE.Mesh(armGeom, armMat);
+            arm2.rotation.y = -Math.PI / 4;
+            group.add(arm2);
+
+            const rotorGeom = new THREE.CylinderGeometry(8, 8, 1, 16);
+            const rotorMat = new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.4 });
+
+            [[14, 14], [14, -14], [-14, 14], [-14, -14]].forEach(pos => {
+                const rotor = new THREE.Mesh(rotorGeom, rotorMat);
+                rotor.position.set(pos[0], 3, pos[1]);
+                group.add(rotor);
+                rotor.userData.isRotor = true;
+            });
+
+            const bubble = new THREE.Mesh(
+                new THREE.SphereGeometry(25, 32, 32),
+                new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.3, wireframe: true })
+            );
+            bubble.name = "collision_bubble";
+            bubble.visible = false;
+            group.add(bubble);
+
+            return group;
+        }
+
+        // --- 3. Telemetry Loading ---
+        document.getElementById('fileInput').addEventListener('change', async function (e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            document.getElementById('status').innerText = `Loading sparse event stream...`;
+            document.getElementById('ui').style.display = 'none';
+
+            droneTimelines.clear();
+            times = [];
+            metadata = null;
+            let frameCount = 0;
+            let maxTime = 0;
+
+            try {
+                const stream = file.stream();
+                const decoder = new TextDecoderStream();
+                const reader = stream.pipeThrough(decoder).getReader();
+
+                let buffer = "";
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += value;
+                    let lines = buffer.split('\n');
+                    buffer = lines.pop();
+
+                    for (const line of lines) {
+                        const sline = line.trim();
+                        if (!sline) continue;
+
+                        const entry = JSON.parse(sline);
+
+                        if (entry.metadata) {
+                            metadata = entry.metadata;
+                            continue;
+                        }
+
+                        const t = entry.time_elapsed;
+                        if (t > maxTime) maxTime = t;
+
+                        if (!droneTimelines.has(entry.drone_id)) {
+                            droneTimelines.set(entry.drone_id, []);
+                        }
+
+                        droneTimelines.get(entry.drone_id).push({
+                            t: t,
+                            pos: new Float32Array(entry.position),
+                            alerts: entry.collision_alerts || []
+                        });
+
+                        frameCount++;
+                        if (frameCount % 10000 === 0) {
+                            document.getElementById('status').innerText = `Parsed ${frameCount} sparse events...`;
+                        }
+                    }
+                }
+
+                totalTime = maxTime;
+                times = [0, totalTime];
+
+                document.getElementById('status').innerText = `Loaded ${frameCount} events across ${droneTimelines.size} drones.`;
+                finalizeViewerLoading();
+
+            } catch (err) {
+                alert("Error reading stream: " + err.message);
+            }
+        });
+
+        function finalizeViewerLoading() {
+            if (droneTimelines.size === 0) {
+                document.getElementById('status').innerText = `No drones found.`;
+                return;
+            }
+
+            clearStaticObjects();
+            if (metadata) {
+                if (metadata.departure_points) metadata.departure_points.forEach(p => createPad(p, 0x00ff00));
+                if (metadata.landing_points) metadata.landing_points.forEach(p => createPad(p, 0x0088ff));
+                if (metadata.obstacles) metadata.obstacles.forEach(obs => createObstacle(obs));
+            }
+
+            const timeline = document.getElementById('timeline');
+            timeline.max = totalTime;
+            timeline.step = 0.1;
+            timeline.value = 0;
+            document.getElementById('ui').style.display = 'flex';
+
+            currentTime = 0;
+            updateUI();
+            renderFrame(0);
+        }
+
+        function createPad(pos, color) {
+            const pad = new THREE.Mesh(
+                new THREE.CircleGeometry(30, 32),
+                new THREE.MeshBasicMaterial({ color: color, side: THREE.DoubleSide, transparent: true, opacity: 0.6 })
+            );
+            pad.rotation.x = Math.PI / 2;
+            pad.position.set(pos[0], 1, pos[2]);
+            scene.add(pad);
+            padObjects.push(pad);
+        }
+
+        function clearStaticObjects() {
+            padObjects.forEach(obj => scene.remove(obj));
+            padObjects = [];
+        }
+
+        function createObstacle(obs) {
+            if (obs.geometry_type === "Cylinder") {
+                const geom = new THREE.CylinderGeometry(obs.dimensions[0], obs.dimensions[2], obs.dimensions[1], 32);
+                const mat = new THREE.MeshLambertMaterial({ color: 0xff0000, transparent: true, opacity: 0.3 });
+                const mesh = new THREE.Mesh(geom, mat);
+                mesh.position.set(obs.position[0], obs.position[1], obs.position[2]);
+                scene.add(mesh);
+                padObjects.push(mesh); // Keep track of it to clear later
+            } else if (obs.geometry_type === "Box") {
+                const geom = new THREE.BoxGeometry(obs.dimensions[0], obs.dimensions[1], obs.dimensions[2]);
+                const mat = new THREE.MeshLambertMaterial({ color: 0x4466aa, transparent: true, opacity: 0.7 });
+                const mesh = new THREE.Mesh(geom, mat);
+                mesh.position.set(obs.position[0], obs.position[1], obs.position[2]);
+                scene.add(mesh);
+                padObjects.push(mesh);
+            }
+        }
+
+        // Binary search to find events surrounding current time
+        function getInterpolatedState(timeline, time) {
+            if (timeline.length === 0) return null;
+            if (time < timeline[0].t) return null;
+            if (time >= timeline[timeline.length - 1].t) {
+                if (time > timeline[timeline.length - 1].t + 2.0) return null;
+                return timeline[timeline.length - 1];
+            }
+
+            let low = 0;
+            let high = timeline.length - 1;
+            while (low <= high) {
+                let mid = Math.floor((low + high) / 2);
+                if (timeline[mid].t < time) {
+                    low = mid + 1;
+                } else if (timeline[mid].t > time) {
+                    high = mid - 1;
+                } else {
+                    return timeline[mid];
+                }
+            }
+
+            const prev = timeline[high];
+            const next = timeline[low];
+
+            const progress = (time - prev.t) / (next.t - prev.t);
+
+            const x = prev.pos[0] + (next.pos[0] - prev.pos[0]) * progress;
+            const y = prev.pos[1] + (next.pos[1] - prev.pos[1]) * progress;
+            const z = prev.pos[2] + (next.pos[2] - prev.pos[2]) * progress;
+
+            return {
+                pos: [x, y, z],
+                alerts: prev.alerts
+            };
+        }
+
+        // --- 4. Render Logic ---
+        function renderFrame(time) {
+            droneTimelines.forEach((timeline, id) => {
+                const state = getInterpolatedState(timeline, time);
+
+                let group = droneObjects.get(id);
+                if (!group) {
+                    group = createQuadcopter();
+                    scene.add(group);
+                    droneObjects.set(id, group);
+                }
+
+                if (!state) {
+                    group.visible = false;
+                    return;
+                }
+
+                group.visible = true;
+                group.position.set(state.pos[0], state.pos[1], state.pos[2]);
+
+                const bubble = group.getObjectByName("collision_bubble");
+                let resolutionLine = group.getObjectByName("resolution_arrow");
+                if (!resolutionLine) {
+                    resolutionLine = new THREE.ArrowHelper(new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, 0, 0), 150, 0x00ff00, 30, 20);
+                    resolutionLine.name = "resolution_arrow";
+                    group.add(resolutionLine);
+                }
+
+                if (state.alerts && state.alerts.length > 0) {
+                    bubble.visible = true;
+                    // Find highest alert level
+                    let maxAlert = Math.max(...state.alerts.map(a => a.alert_level || 0));
+                    if (maxAlert >= 2) {
+                        bubble.material.color.setHex(0xff0000); // Red Warning
+                    } else if (maxAlert === 1) {
+                        bubble.material.color.setHex(0xffff00); // Yellow Corrective
+                    } else {
+                        // Fallback purely distance-based if DAIDALUS isn't reporting level
+                        let minDist = Math.min(...state.alerts.map(a => a.distance));
+                        let factor = Math.min(minDist / 50, 1.0);
+                        bubble.material.color.setHSL(0.15 * factor, 1, 0.5);
+                    }
+
+                    // Look for resolution bands
+                    let bestAlert = state.alerts.find(a => (a.min_safe_heading !== 0 || a.max_safe_heading !== 0));
+                    if (bestAlert && document.getElementById('showSuggestions').checked) {
+                        resolutionLine.visible = true;
+                        let h = bestAlert.min_safe_heading;
+                        let dir = new THREE.Vector3(Math.sin(h), 0, -Math.cos(h)).normalize();
+                        resolutionLine.setDirection(dir);
+                        resolutionLine.setColor(0x00ff00);
+                    } else {
+                        resolutionLine.visible = false;
+                    }
+                } else {
+                    bubble.visible = false;
+                    resolutionLine.visible = false;
+                }
+
+                group.children.forEach(c => {
+                    if (c.userData.isRotor) c.rotation.y += 0.5;
+                });
+            });
+        }
+
+        function updateUI() {
+            document.getElementById('timeline').value = currentTime;
+            document.getElementById('timeDisplay').innerText = `${currentTime.toFixed(1)}s / ${totalTime.toFixed(1)}s`;
+        }
+
+        // --- 5. Controls ---
+        document.getElementById('playBtn').addEventListener('click', () => {
+            isPlaying = !isPlaying;
+            document.getElementById('playBtn').innerText = isPlaying ? "Pause" : "Play";
+            if (isPlaying) clock.getDelta();
+        });
+
+        document.getElementById('playSpeed').addEventListener('change', (e) => {
+            playbackSpeed = parseFloat(e.target.value);
+        });
+
+        document.getElementById('timeline').addEventListener('input', (e) => {
+            isPlaying = false;
+            document.getElementById('playBtn').innerText = "Play";
+            currentTime = parseFloat(e.target.value);
+            updateUI();
+            renderFrame(currentTime);
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            if (isPlaying && totalTime > 0) {
+                currentTime += clock.getDelta() * playbackSpeed;
+                if (currentTime > totalTime) currentTime = 0;
+                updateUI();
+                renderFrame(currentTime);
+            }
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+
+</html>

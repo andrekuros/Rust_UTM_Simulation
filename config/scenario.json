@@ -1,0 +1,41 @@
+{
+  "drones": [
+    {
+      "id": "drone_1",
+      "performance": {
+        "mass_kg": 1.5,
+        "max_speed_mps": 15.0,
+        "battery_discharge_rate": 0.5
+      },
+      "flight_plan": {
+        "waypoints": [
+          [0.0, 10.0, 0.0],
+          [100.0, 10.0, 100.0]
+        ],
+        "current_waypoint_index": 0
+      }
+    },
+    {
+      "id": "drone_2",
+      "performance": {
+        "mass_kg": 1.5,
+        "max_speed_mps": 15.0,
+        "battery_discharge_rate": 0.5
+      },
+      "flight_plan": {
+        "waypoints": [
+          [100.0, 12.0, 0.0],
+          [0.0, 12.0, 100.0]
+        ],
+        "current_waypoint_index": 0
+      }
+    }
+  ],
+  "obstacles": [
+    {
+      "id": "building_1",
+      "geometry_type": "Box",
+      "dimensions": [50.0, 100.0, 50.0]
+    }
+  ]
+}
