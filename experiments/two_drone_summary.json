@@ -1,0 +1,67 @@
+{
+    "head_on_default": {
+        "experiment_dir": "experiments/head_on_default",
+        "scenario": "head_on",
+        "collision_threshold": 30.0,
+        "metrics": {
+            "first_alert_time": 44.0,
+            "first_warning_time": 44.0,
+            "min_alert_distance": 21.424618,
+            "min_distance_below_threshold": 21.424618,
+            "total_alerts": 26,
+            "total_warnings": 26
+        }
+    },
+    "head_on_tighter_radius": {
+        "experiment_dir": "experiments/head_on_tighter_radius",
+        "scenario": "head_on",
+        "collision_threshold": 30.0,
+        "metrics": {
+            "first_alert_time": 41.0,
+            "first_warning_time": 41.0,
+            "min_alert_distance": 50.16794,
+            "min_distance_below_threshold": null,
+            "total_alerts": 42,
+            "total_warnings": 42
+        }
+    },
+    "crossing_90deg_default": {
+        "experiment_dir": "experiments/crossing_90deg_default",
+        "scenario": "crossing_90deg",
+        "collision_threshold": 50.0,
+        "metrics": {
+            "first_alert_time": 42.0,
+            "first_warning_time": 42.0,
+            "min_alert_distance": 29.660501,
+            "min_distance_below_threshold": 29.660501,
+            "total_alerts": 38,
+            "total_warnings": 38
+        }
+    },
+    "head_on_stronger_avoidance": {
+        "experiment_dir": "experiments/head_on_stronger_avoidance",
+        "scenario": "head_on",
+        "collision_threshold": 30.0,
+        "metrics": {
+            "first_alert_time": 41.0,
+            "first_warning_time": 41.0,
+            "min_alert_distance": 41.82003,
+            "min_distance_below_threshold": null,
+            "total_alerts": 40,
+            "total_warnings": 40
+        }
+    },
+    "crossing_90deg_stronger_avoidance": {
+        "experiment_dir": "experiments/crossing_90deg_stronger_avoidance",
+        "scenario": "crossing_90deg",
+        "collision_threshold": 30.0,
+        "metrics": {
+            "first_alert_time": 36.0,
+            "first_warning_time": 36.0,
+            "min_alert_distance": 35.198887,
+            "min_distance_below_threshold": null,
+            "total_alerts": 70,
+            "total_warnings": 70
+        }
+    }
+}

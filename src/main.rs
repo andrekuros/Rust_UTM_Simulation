@@ -76,6 +76,7 @@ struct SimulationConfigJSON {
     #[serde(default)]
     avoidance_mode: AvoidanceMode,
     scenario_file: Option<String>,
+    enable_mqtt: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -103,31 +104,56 @@ fn main() {
     let avoidance_mode = root_config.simulation.avoidance_mode;
     let scenario_file = root_config.simulation.scenario_file
         .unwrap_or_else(|| "config/scenario_dynamic.json".to_string());
+    let enable_mqtt = root_config.simulation.enable_mqtt.unwrap_or(true);
 
-    println!("Starting simulation: duration {}s, collision threshold {}m, scenario {}, avoidance_mode {:?}", 
-        sim_duration, collision_threshold, scenario_file, avoidance_mode as u8);
+    println!(
+        "Starting simulation: duration {}s, collision threshold {}m, scenario {}, avoidance_mode {:?}, mqtt_enabled {}",
+        sim_duration,
+        collision_threshold,
+        scenario_file,
+        avoidance_mode as u8,
+        enable_mqtt
+    );
 
-    App::new()
-        .add_plugins(MinimalPlugins)
+    let mut app = App::new();
+
+    app.add_plugins(MinimalPlugins)
         .add_plugins(AssetPlugin::default())
         .add_plugins(bevy::scene::ScenePlugin::default())
-        .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(1.0)))
-        .insert_resource(SimulationConfig { duration: sim_duration, show_progress, scenario_file: scenario_file.clone(), avoidance_mode })
-        .insert_resource(crate::daidalus::SafetyConfig { collision_threshold })
+        .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(
+            1.0,
+        )))
+        .insert_resource(SimulationConfig {
+            duration: sim_duration,
+            show_progress,
+            scenario_file: scenario_file.clone(),
+            avoidance_mode,
+        })
+        .insert_resource(crate::daidalus::SafetyConfig {
+            collision_threshold,
+        })
         .insert_resource(crate::daidalus::ReactiveDronesConfig(avoidance_mode))
         .insert_resource(ProgressTimer(Timer::from_seconds(1.0, TimerMode::Repeating)))
         .init_resource::<ScenarioMetadata>()
         .init_resource::<Assets<Mesh>>()
         .insert_resource(PendingDrones(Vec::new()))
-        .insert_resource(ConfigDepartureZones(root_config.departure_landing_zones.unwrap_or_default()))
+        .insert_resource(ConfigDepartureZones(
+            root_config
+                .departure_landing_zones
+                .unwrap_or_default(),
+        ))
         .add_plugins(CorePlugin)
         .add_plugins(SensorsPlugin)
         .add_plugins(NegotiationPlugin)
-        .add_plugins(CommsPlugin)
         .add_plugins(DaidalusPlugin)
         .add_systems(Startup, load_scenario)
-        .add_systems(Update, (spawn_drones_by_schedule, timeout_system, progress_system))
-        .run();
+        .add_systems(Update, (spawn_drones_by_schedule, timeout_system, progress_system));
+
+    if enable_mqtt {
+        app.add_plugins(CommsPlugin);
+    }
+
+    app.run();
 }
 
 #[derive(Resource)]

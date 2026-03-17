@@ -4,9 +4,11 @@
         "collision_threshold": 30.0,
         "show_progress_bar": true,
         "reactive_drones": false,
-        "scenario_file": "config/scenario_dynamic.json",
+        "scenario_file": "experiments/head_on_default/scenario.json",
         "avoidance_mode": "Daidalus",
-        "enable_mqtt": true
+        "daidalus_evaluation_radius": 250.0,
+        "avoidance_offset_m": 50.0,
+        "avoidance_burst_s": 20.0
     },
     "scenario": {
         "num_drones": 150,

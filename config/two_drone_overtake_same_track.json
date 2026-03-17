@@ -1,0 +1,54 @@
+{
+    "drones": [
+        {
+            "id": "A",
+            "performance": {
+                "mass_kg": 1.5,
+                "max_speed_mps": 12.0,
+                "battery_discharge_rate": 10.0
+            },
+            "flight_plan": {
+                "waypoints": [
+                    [
+                        -1000.0,
+                        100.0,
+                        0.0
+                    ],
+                    [
+                        1000.0,
+                        100.0,
+                        0.0
+                    ]
+                ],
+                "current_waypoint_index": 0
+            },
+            "departure_time_s": 0.0
+        },
+        {
+            "id": "B",
+            "performance": {
+                "mass_kg": 1.5,
+                "max_speed_mps": 25.0,
+                "battery_discharge_rate": 10.0
+            },
+            "flight_plan": {
+                "waypoints": [
+                    [
+                        -1500.0,
+                        100.0,
+                        0.0
+                    ],
+                    [
+                        1000.0,
+                        100.0,
+                        0.0
+                    ]
+                ],
+                "current_waypoint_index": 0
+            },
+            "departure_time_s": 10.0
+        }
+    ],
+    "obstacles": [],
+    "departure_landing_zones": []
+}

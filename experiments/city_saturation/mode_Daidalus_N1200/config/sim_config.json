@@ -1,17 +1,18 @@
 {
     "simulation": {
-        "duration": 180.0,
+        "duration": 10800.0,
         "collision_threshold": 30.0,
-        "show_progress_bar": true,
+        "show_progress_bar": false,
         "reactive_drones": false,
         "scenario_file": "config/scenario_dynamic.json",
         "avoidance_mode": "Daidalus",
-        "enable_mqtt": true
+        "enable_mqtt": false,
+        "time_window": 10800.0
     },
     "scenario": {
-        "num_drones": 150,
+        "num_drones": 1200,
         "area_size": 5000.0,
-        "time_window": 180.0,
+        "time_window": 10800.0,
         "min_speed": 10.0,
         "max_speed": 30.0,
         "flight_levels": [
