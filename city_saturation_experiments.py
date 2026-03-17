@@ -215,26 +215,42 @@ def run_all_experiments() -> None:
         for n in DRONE_COUNTS:
             jobs.append((mode, n))
 
+    total_jobs = len(jobs)
     print(
-        f"Launching {len(jobs)} simulations "
+        f"Launching {total_jobs} simulations "
         f"({len(MODES)} modes x {len(DRONE_COUNTS)} densities) "
         f"with up to {MAX_WORKERS} workers..."
     )
 
     all_results: List[Dict[str, Any]] = []
 
+    started_at = time.time()
+
     with ProcessPoolExecutor(max_workers=MAX_WORKERS) as executor:
         future_to_job = {executor.submit(run_single_sim, job): job for job in jobs}
 
+        completed = 0
         for future in as_completed(future_to_job):
             mode, n = future_to_job[future]
             try:
                 res = future.result()
                 all_results.append(res)
+                completed += 1
+                sim_speed = (
+                    res["sim_duration_s"] / res["simulation_wall_time_s"]
+                    if res["simulation_wall_time_s"] > 0
+                    else 0.0
+                )
+                overall_pct = 100.0 * completed / total_jobs
+                elapsed_wall = time.time() - started_at
+
                 print(
                     f"[DONE] mode={mode}, N={n}, "
                     f"unique_pairs={res['total_unique_collision_pairs']}, "
-                    f"wall_time={res['simulation_wall_time_s']:.1f}s"
+                    f"wall_time={res['simulation_wall_time_s']:.1f}s, "
+                    f"sim_speed={sim_speed:.1f}x realtime, "
+                    f"overall_progress={overall_pct:.1f}%, "
+                    f"total_wall_elapsed={elapsed_wall/60.0:.1f} min"
                 )
             except Exception as e:
                 print(f"[ERROR] mode={mode}, N={n}: {e}")

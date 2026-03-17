@@ -237,19 +237,25 @@ fn main() {
         });
     }
 
-    // Define Asymmetric Hubs
+    // Define multiple asymmetric hubs (10 departure/landing points)
     let hubs = vec![
-        [0.0, -2000.0],    // Hub 0: Northern Logistics Port
-        [2000.0, 500.0],   // Hub 1: Eastern Hospital Zone
-        [-500.0, 2000.0],  // Hub 2: Southern Station
-        [-2000.0, -500.0], // Hub 3: Western Industrial
+        [0.0, -2200.0],
+        [2200.0, -2200.0],
+        [-2200.0, -2200.0],
+        [2200.0, 2200.0],
+        [-2200.0, 2200.0],
+        [0.0, 2200.0],
+        [2400.0, 0.0],
+        [-2400.0, 0.0],
+        [1800.0, -500.0],
+        [-1800.0, 500.0],
     ];
 
     for i in 0..config.num_drones {
-        let mut dep_idx = rng.gen_range(0..4);
-        let mut land_idx = rng.gen_range(0..4);
+        let mut dep_idx = rng.gen_range(0..hubs.len());
+        let mut land_idx = rng.gen_range(0..hubs.len());
         while dep_idx == land_idx {
-            land_idx = rng.gen_range(0..4);
+            land_idx = rng.gen_range(0..hubs.len());
         }
         
         let departure = hubs[dep_idx];
