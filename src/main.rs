@@ -11,7 +11,7 @@ mod daidalus;
 mod negotiation;
 mod comms;
 
-use crate::agents::{AircraftKind, DepartureTime, Drone, DronePerformance, FlightPlan, Obstacle, RectZone, ReactiveAvoidance, Velocity};
+use crate::agents::{AircraftKind, DepartureTime, Drone, DronePerformance, FlightPlan, FlightState, Obstacle, RectZone, ReactiveAvoidance, Velocity};
 use crate::sensors::{SensorsPlugin, SensorSuite};
 use crate::core::CorePlugin;
 use crate::negotiation::NegotiationPlugin;
@@ -68,6 +68,9 @@ pub enum AvoidanceMode {
     Daidalus,
 }
 
+/// `log_level`: "metrics" = no NDJSON (just counters in sim_metrics.json),
+///              "compact" = event-based NDJSON (small, for viewer),
+///              "full"    = periodic NDJSON at log_interval_s (large, for detailed replay).
 #[derive(Serialize, Deserialize)]
 struct SimulationConfigJSON {
     duration: f32,
@@ -77,6 +80,19 @@ struct SimulationConfigJSON {
     avoidance_mode: AvoidanceMode,
     scenario_file: Option<String>,
     enable_mqtt: Option<bool>,
+    #[serde(default)]
+    log_level: Option<String>,
+    #[serde(default)]
+    log_interval_s: Option<f32>,
+    /// Physics tick rate in Hz. Python sims use 1Hz. Default 1.0.
+    #[serde(default)]
+    physics_hz: Option<f64>,
+    /// DAIDALUS evaluation interval in seconds. Higher = faster but less responsive. Default 5.
+    #[serde(default)]
+    daa_interval_s: Option<f32>,
+    // Legacy field — mapped to log_level internally
+    #[serde(default)]
+    log_periodic: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -105,14 +121,34 @@ fn main() {
     let scenario_file = root_config.simulation.scenario_file
         .unwrap_or_else(|| "config/scenario_dynamic.json".to_string());
     let enable_mqtt = root_config.simulation.enable_mqtt.unwrap_or(true);
+    let log_interval_s = root_config.simulation.log_interval_s.unwrap_or(5.0);
+
+    // Resolve log_level: explicit field > legacy log_periodic > default "compact"
+    let log_level_str = root_config.simulation.log_level
+        .unwrap_or_else(|| {
+            if root_config.simulation.log_periodic.unwrap_or(false) {
+                "full".to_string()
+            } else {
+                "compact".to_string()
+            }
+        });
+    let log_level = match log_level_str.as_str() {
+        "metrics" => crate::core::logger::LogLevel::Metrics,
+        "full" => crate::core::logger::LogLevel::Full,
+        _ => crate::core::logger::LogLevel::Compact,
+    };
+    let physics_hz = root_config.simulation.physics_hz.unwrap_or(1.0);
+    let daa_interval_s = root_config.simulation.daa_interval_s.unwrap_or(5.0);
 
     println!(
-        "Starting simulation: duration {}s, collision threshold {}m, scenario {}, avoidance_mode {:?}, mqtt_enabled {}",
+        "Starting simulation: duration {}s, collision threshold {}m, scenario {}, avoidance_mode {:?}, mqtt_enabled {}, log_level {:?}, physics_hz {}",
         sim_duration,
         collision_threshold,
         scenario_file,
         avoidance_mode as u8,
-        enable_mqtt
+        enable_mqtt,
+        log_level_str,
+        physics_hz
     );
 
     let mut app = App::new();
@@ -133,6 +169,12 @@ fn main() {
             collision_threshold,
         })
         .insert_resource(crate::daidalus::ReactiveDronesConfig(avoidance_mode))
+        .insert_resource(crate::daidalus::DaaIntervalConfig(daa_interval_s))
+        .insert_resource(crate::core::logger::LoggerConfig {
+            level: log_level,
+            interval_s: log_interval_s,
+        })
+        .insert_resource(crate::core::PhysicsHz(physics_hz))
         .insert_resource(ProgressTimer(Timer::from_seconds(1.0, TimerMode::Repeating)))
         .init_resource::<ScenarioMetadata>()
         .init_resource::<Assets<Mesh>>()
@@ -147,7 +189,7 @@ fn main() {
         .add_plugins(NegotiationPlugin)
         .add_plugins(DaidalusPlugin)
         .add_systems(Startup, load_scenario)
-        .add_systems(Update, (spawn_drones_by_schedule, timeout_system, progress_system));
+        .add_systems(Update, (spawn_drones_by_schedule, flight_state_system, despawn_completed_drones, timeout_system, progress_system));
 
     if enable_mqtt {
         app.add_plugins(CommsPlugin);
@@ -217,6 +259,8 @@ fn load_scenario(
 ) {
     let data = std::fs::read_to_string(&config.scenario_file).expect("Unable to read scenario file");
     let scenario: ScenarioData = serde_json::from_str(&data).expect("Unable to parse scenario JSON");
+    // Drop the raw JSON string immediately to free memory
+    drop(data);
 
     metadata.departure_landing_zones = if scenario.departure_landing_zones.is_empty() {
         config_zones.0.clone()
@@ -224,7 +268,10 @@ fn load_scenario(
         scenario.departure_landing_zones.clone()
     };
 
-    for drone_config in scenario.drones.iter() {
+    // Only store first/last 50 departure/landing points in metadata (for viewer);
+    // full list would waste memory with thousands of drone entities.
+    let cap = 50;
+    for drone_config in scenario.drones.iter().take(cap) {
         if let Some(first) = drone_config.flight_plan.waypoints.first() {
             metadata.departure_points.push(*first);
         }
@@ -246,9 +293,10 @@ fn load_scenario(
         ));
     }
 
+    let drone_count = scenario.drones.len();
     pending.0 = scenario.drones;
     println!("Scenario loaded: {} obstacles, {} drones (scheduled), {} departure/landing zones",
-        metadata.obstacles.len(), pending.0.len(), metadata.departure_landing_zones.len());
+        metadata.obstacles.len(), drone_count, metadata.departure_landing_zones.len());
 }
 
 fn spawn_drones_by_schedule(
@@ -256,6 +304,7 @@ fn spawn_drones_by_schedule(
     config: Res<SimulationConfig>,
     mut pending: ResMut<PendingDrones>,
     mut commands: Commands,
+    mut metrics: ResMut<crate::core::logger::SimMetrics>,
 ) {
     let now = time.elapsed_seconds();
     let to_spawn: Vec<DroneConfig> = pending.0.iter()
@@ -267,6 +316,11 @@ fn spawn_drones_by_schedule(
             .map(|wp| Vec3::new(wp[0], wp[1], wp[2]))
             .collect();
         let start = waypoints.first().copied().unwrap_or(Vec3::ZERO);
+        // Accumulate ideal (flight-plan) distance for route inefficiency metric
+        let ideal_dist: f32 = waypoints.windows(2)
+            .map(|w| w[0].distance(w[1]))
+            .sum();
+        metrics.total_ideal_distance += ideal_dist as f64;
         let mut entity = commands.spawn((
             Drone { id: drone_config.id.clone() },
             drone_config.performance.clone(),
@@ -277,6 +331,7 @@ fn spawn_drones_by_schedule(
             SensorSuite { sensors: vec![] },
             DepartureTime(drone_config.departure_time_s),
             ReactiveAvoidance::default(),
+            FlightState::default(),
             Transform::from_translation(start),
             Velocity::default(),
         ));
@@ -285,4 +340,51 @@ fn spawn_drones_by_schedule(
         }
     }
     pending.0.retain(|d| d.departure_time_s > now);
+}
+
+/// Remove drone entities once they finish all waypoints and land,
+/// preventing unbounded ECS growth during long simulations.
+fn despawn_completed_drones(
+    mut commands: Commands,
+    query: Query<(Entity, &FlightState, &Transform)>,
+) {
+    for (entity, state, transform) in query.iter() {
+        if *state == FlightState::Completed && transform.translation.y < 2.0 {
+            commands.entity(entity).despawn();
+        }
+    }
+}
+
+fn flight_state_system(
+    mut query: Query<(
+        &Transform,
+        &Velocity,
+        &FlightPlan,
+        &DepartureTime,
+        &mut FlightState,
+    )>,
+    time: Res<Time>,
+) {
+    let now = time.elapsed_seconds();
+    for (transform, vel, plan, dep_time, mut state) in query.iter_mut() {
+        if now < dep_time.0 {
+            *state = FlightState::Idle;
+            continue;
+        }
+        let alt = transform.translation.y;
+        let vy = vel.0.y;
+        let completed = plan.current_waypoint_index >= plan.waypoints.len();
+
+        if completed {
+            *state = FlightState::Completed;
+        } else if alt < 5.0 && vel.0.length() < 0.5 {
+            *state = FlightState::Idle;
+        } else if vy > 0.5 {
+            *state = FlightState::Takeoff;
+        } else if vy < -0.5 {
+            *state = FlightState::Landing;
+        } else if alt >= 5.0 {
+            *state = FlightState::Cruise;
+        }
+    }
 }

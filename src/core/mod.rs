@@ -4,20 +4,32 @@ use bevy_rapier3d::prelude::*;
 pub mod logger;
 use logger::LoggerPlugin;
 
+/// Physics tick rate. Python xTM sims use 1 Hz. Higher values give smoother
+/// trajectories but cost more CPU. For UTM-scale waypoint navigation, 1 Hz is enough.
+#[derive(Resource)]
+pub struct PhysicsHz(pub f64);
+
+impl Default for PhysicsHz {
+    fn default() -> Self { Self(1.0) }
+}
+
 pub struct CorePlugin;
 
 impl Plugin for CorePlugin {
     fn build(&self, app: &mut App) {
-        // Configure Physics
+        app.init_resource::<PhysicsHz>();
         app.add_plugins(RapierPhysicsPlugin::<NoUserData>::default());
         app.add_plugins(LoggerPlugin);
 
-        // Configure Fixed Timestep (50Hz)
-        app.insert_resource(Time::<Fixed>::from_hz(50.0));
-        
-        // Add simulation systems
+        app.add_systems(Startup, configure_physics_hz);
         app.add_systems(FixedUpdate, (physics_step, drone_movement_system));
     }
+}
+
+fn configure_physics_hz(hz: Res<PhysicsHz>, mut fixed_time: ResMut<Time<Fixed>>) {
+    let rate = hz.0.max(0.1);
+    *fixed_time = Time::<Fixed>::from_hz(rate);
+    println!("Physics tick rate set to {} Hz (dt = {:.3}s)", rate, 1.0 / rate);
 }
 
 fn drone_movement_system(

@@ -82,6 +82,29 @@ pub struct Obstacle {
     pub dimensions: Vec3,
 }
 
+/// Current phase of flight, inferred from altitude and velocity.
+#[derive(Component, Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub enum FlightState {
+    #[default]
+    Idle,
+    Takeoff,
+    Cruise,
+    Landing,
+    Completed,
+}
+
+impl std::fmt::Display for FlightState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FlightState::Idle => write!(f, "idle"),
+            FlightState::Takeoff => write!(f, "takeoff"),
+            FlightState::Cruise => write!(f, "cruise"),
+            FlightState::Landing => write!(f, "landing"),
+            FlightState::Completed => write!(f, "completed"),
+        }
+    }
+}
+
 /// Rectangular departure/landing zone (XZ plane). Collision alerts disabled when both aircraft are inside.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RectZone {

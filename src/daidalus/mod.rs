@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 use cxx::UniquePtr;
-use std::pin::Pin;
 
 #[cxx::bridge]
 pub mod ffi {
@@ -51,21 +50,37 @@ pub struct ActiveCollisions {
 pub struct SafetyConfig {
     pub collision_threshold: f32,
 }
+
 pub struct DaidalusBridge {
     pub inner: UniquePtr<ffi::DaidalusWrapper>,
 }
 
 impl Default for DaidalusBridge {
-    fn default() -> Self {
-        Self::new()
-    }
+    fn default() -> Self { Self::new() }
 }
 
 impl DaidalusBridge {
     pub fn new() -> Self {
-        Self { 
-            inner: ffi::new_daidalus() 
-        }
+        Self { inner: ffi::new_daidalus() }
+    }
+}
+
+#[derive(Resource)]
+pub struct ReactiveDronesConfig(pub crate::AvoidanceMode);
+
+#[derive(Resource)]
+pub struct DaaIntervalConfig(pub f32);
+
+impl Default for DaaIntervalConfig {
+    fn default() -> Self { Self(5.0) }
+}
+
+#[derive(Resource)]
+struct DaaTimer(Timer);
+
+impl Default for DaaTimer {
+    fn default() -> Self {
+        Self(Timer::from_seconds(5.0, TimerMode::Repeating))
     }
 }
 
@@ -74,18 +89,43 @@ pub struct DaidalusPlugin;
 impl Plugin for DaidalusPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ActiveCollisions>()
-           .add_systems(Update, (daidalus_monitoring_system, reactive_avoidance_system));
+           .init_resource::<DaaIntervalConfig>()
+           .init_resource::<DaaTimer>()
+           .add_systems(Startup, init_daa_timer)
+           .add_systems(Update, daidalus_monitoring_system)
+           .add_systems(Update, reactive_avoidance_system);
     }
 }
 
+fn init_daa_timer(cfg: Res<DaaIntervalConfig>, mut timer: ResMut<DaaTimer>) {
+    timer.0.set_duration(std::time::Duration::from_secs_f32(cfg.0));
+    timer.0.reset();
+    println!("DAIDALUS evaluation interval: {}s", cfg.0);
+}
+
 fn daidalus_monitoring_system(
+    time: Res<Time>,
+    reactive_cfg: Option<Res<ReactiveDronesConfig>>,
+    mut timer: ResMut<DaaTimer>,
     query: Query<(&crate::agents::Drone, &Transform, &crate::agents::Velocity)>,
     safety: Res<SafetyConfig>,
     metadata: Res<crate::ScenarioMetadata>,
     mut active_collisions: ResMut<ActiveCollisions>,
 ) {
+    let mode = reactive_cfg.as_ref().map(|c| c.0).unwrap_or(crate::AvoidanceMode::None);
+
+    if mode == crate::AvoidanceMode::None {
+        active_collisions.alerts.clear();
+        return;
+    }
+
+    if !timer.0.tick(time.delta()).just_finished() {
+        return;
+    }
+
     let mut bridge = DaidalusBridge::new();
     let agents: Vec<(String, Vec3, Vec3)> = query.iter()
+        .filter(|(_, transform, _)| transform.translation.y >= 5.0)
         .map(|(drone, transform, velocity)| (drone.id.clone(), transform.translation, velocity.0))
         .collect();
 
@@ -100,49 +140,17 @@ fn daidalus_monitoring_system(
     }
 
     let mut alerts = Vec::new();
-    
-    let mut check_pair = |idx_a: usize, idx_b: usize| {
-        let (id_a, pos_a, vel_a) = &agents[idx_a];
-        let (id_b, pos_b, vel_b) = &agents[idx_b];
-        
-        let both_in_zone = metadata.departure_landing_zones.iter().any(|z| z.contains_pos(*pos_a) && z.contains_pos(*pos_b));
-        if both_in_zone { return; }
+    let threshold = safety.collision_threshold;
 
-        let dist = pos_a.distance(*pos_b);
-        let daidalus_evaluation_radius = 250.0;
-        
-        if dist < daidalus_evaluation_radius {
-            let res = bridge.inner.pin_mut().evaluate_pair(
-                &ffi::Vec3F { x: pos_a.x, y: pos_a.y, z: pos_a.z },
-                &ffi::Vec3F { x: vel_a.x, y: vel_a.y, z: vel_a.z },
-                &ffi::Vec3F { x: pos_b.x, y: pos_b.y, z: pos_b.z },
-                &ffi::Vec3F { x: vel_b.x, y: vel_b.y, z: vel_b.z }
-            );
-
-            // only physically log the alert if DAIDALUS triggers a warning, or they just physically breached the raw critical spherical bounding box
-            if res.alert_level > 0 || dist < safety.collision_threshold {
-                alerts.push(CollisionAlert {
-                    drone_a: id_a.clone(),
-                    drone_b: id_b.clone(),
-                    distance: dist,
-                    alert_level: res.alert_level,
-                    time_to_violation: res.time_to_violation,
-                    min_safe_heading: res.min_safe_heading,
-                    max_safe_heading: res.max_safe_heading,
-                });
-            }
-        }
-    };
+    // Collect pairs to evaluate
+    let mut pairs: Vec<(usize, usize)> = Vec::new();
 
     for (&(cx, cy, cz), cell_indices) in grid.iter() {
-        // Internal cell pairs
         for i in 0..cell_indices.len() {
             for j in (i + 1)..cell_indices.len() {
-                check_pair(cell_indices[i], cell_indices[j]);
+                pairs.push((cell_indices[i], cell_indices[j]));
             }
         }
-
-        // Half of 26 neighbors to avoid double-counting
         let neighbors = [
             (1, 0, 0), (1, 1, 0), (1, -1, 0),
             (0, 1, 0),
@@ -154,18 +162,46 @@ fn daidalus_monitoring_system(
             if let Some(neighbor_indices) = grid.get(&(cx + dx, cy + dy, cz + dz)) {
                 for &idx_a in cell_indices {
                     for &idx_b in neighbor_indices {
-                        check_pair(idx_a, idx_b);
+                        pairs.push((idx_a, idx_b));
                     }
                 }
             }
         }
     }
 
+    for (idx_a, idx_b) in pairs {
+        let (id_a, pos_a, vel_a) = &agents[idx_a];
+        let (id_b, pos_b, vel_b) = &agents[idx_b];
+
+        let both_in_zone = metadata.departure_landing_zones.iter()
+            .any(|z| z.contains_pos(*pos_a) && z.contains_pos(*pos_b));
+        if both_in_zone { continue; }
+
+        let dist = pos_a.distance(*pos_b);
+        if dist >= 250.0 { continue; }
+
+        let res = bridge.inner.pin_mut().evaluate_pair(
+            &ffi::Vec3F { x: pos_a.x, y: pos_a.y, z: pos_a.z },
+            &ffi::Vec3F { x: vel_a.x, y: vel_a.y, z: vel_a.z },
+            &ffi::Vec3F { x: pos_b.x, y: pos_b.y, z: pos_b.z },
+            &ffi::Vec3F { x: vel_b.x, y: vel_b.y, z: vel_b.z }
+        );
+
+        if res.alert_level > 0 || dist < threshold {
+            alerts.push(CollisionAlert {
+                drone_a: id_a.clone(),
+                drone_b: id_b.clone(),
+                distance: dist,
+                alert_level: res.alert_level,
+                time_to_violation: res.time_to_violation,
+                min_safe_heading: res.min_safe_heading,
+                max_safe_heading: res.max_safe_heading,
+            });
+        }
+    }
+
     active_collisions.alerts = alerts;
 }
-
-#[derive(Resource)]
-pub struct ReactiveDronesConfig(pub crate::AvoidanceMode);
 
 fn reactive_avoidance_system(
     time: Res<Time>,
@@ -197,7 +233,7 @@ fn reactive_avoidance_system(
                 },
                 crate::AvoidanceMode::Daidalus => {
                     if alert.min_safe_heading == 0.0 && alert.max_safe_heading == 0.0 {
-                        Vec3::new(15.0, 10.0, 15.0) // tiny fallback jitter if totally gridlocked
+                        Vec3::new(15.0, 10.0, 15.0)
                     } else {
                         let h = alert.min_safe_heading;
                         Vec3::new(h.sin(), 0.0, -h.cos()) * 200.0
@@ -208,7 +244,7 @@ fn reactive_avoidance_system(
 
             if offset != Vec3::ZERO {
                 avoidance.target = Some(pos + offset);
-                avoidance.until_time = now + 0.5; // Short burst evaluation to prevent overcoasting
+                avoidance.until_time = now + 0.5;
             }
         }
     }
