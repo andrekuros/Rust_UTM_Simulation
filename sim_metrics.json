@@ -1,0 +1,11 @@
+{
+  "completed_missions": 0,
+  "daa_alert_pairs": 723,
+  "macproxy_active_pairs": 0,
+  "macproxy_count": 23,
+  "route_ideal_distance_mode": "chord",
+  "route_inefficiency_pct": 0.0,
+  "route_metrics_timing": "mission_complete",
+  "total_ideal_distance_m": 0.0,
+  "total_real_distance_m": 0.0
+}

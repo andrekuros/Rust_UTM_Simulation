@@ -418,6 +418,9 @@ def write_scenario(output_dir: str, scenario: str, num_drones: int, seed: int = 
             "log_interval_s": log_interval,
             "physics_hz": physics_hz,
             "daa_interval_s": 1.0,
+            # Rust sim_metrics parity with Python xTM (testeprimordial4b-style chord + mission totals).
+            "route_ideal_distance_mode": "chord",
+            "route_metrics_timing": "mission_complete",
         },
     }
     config_path = os.path.join(output_dir, "config", "sim_config.json")

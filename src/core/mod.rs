@@ -4,6 +4,11 @@ use rand::Rng;
 use std::collections::{HashMap, HashSet};
 
 pub mod logger;
+pub mod route_metrics;
+pub use route_metrics::{
+    ideal_distance_m, MissionRouteMetrics, RouteIdealDistanceMode, RouteMetricsConfig,
+    RouteMetricsTiming,
+};
 use logger::LoggerPlugin;
 
 /// Physics tick rate. Python xTM sims use 1 Hz. Higher values give smoother
@@ -104,7 +109,12 @@ fn drone_movement_system(
 /// Python 4A: each tick, +5 m "maneuver penalty" per drone that sees a DAA threat (no steering).
 fn python4a_route_penalty_system(
     reactive_cfg: Option<Res<crate::daidalus::ReactiveDronesConfig>>,
+    route_cfg: Res<crate::core::route_metrics::RouteMetricsConfig>,
     query: Query<(&crate::agents::Drone, &Transform)>,
+    mut punish: Query<(
+        &crate::agents::Drone,
+        &mut crate::core::route_metrics::MissionRouteMetrics,
+    )>,
     mut metrics: ResMut<crate::core::logger::SimMetrics>,
 ) {
     if reactive_cfg.map(|c| c.0) != Some(crate::AvoidanceMode::Python4a) {
@@ -164,7 +174,18 @@ fn python4a_route_penalty_system(
         }
     }
 
-    metrics.total_real_distance += 5.0 * penalized.len() as f64;
+    match route_cfg.timing {
+        crate::core::route_metrics::RouteMetricsTiming::Spawn => {
+            metrics.total_real_distance += 5.0 * penalized.len() as f64;
+        }
+        crate::core::route_metrics::RouteMetricsTiming::MissionComplete => {
+            for (drone, mut route) in punish.iter_mut() {
+                if penalized.contains(&drone.id) {
+                    route.real_m += 5.0;
+                }
+            }
+        }
+    }
 }
 
 fn physics_step(_time: Res<Time>, mut _query: Query<&mut Transform, With<RigidBody>>) {

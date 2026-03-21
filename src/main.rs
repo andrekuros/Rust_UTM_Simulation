@@ -18,6 +18,9 @@ use crate::negotiation::NegotiationPlugin;
 use crate::comms::CommsPlugin;
 
 use crate::daidalus::DaidalusPlugin;
+use crate::core::route_metrics::{
+    ideal_distance_m, MissionRouteMetrics, RouteIdealDistanceMode, RouteMetricsConfig, RouteMetricsTiming,
+};
 
 #[derive(Serialize, Deserialize, Resource)]
 struct ScenarioData {
@@ -52,12 +55,21 @@ struct ObstacleConfig {
     position: [f32; 3],
 }
 
+#[derive(Serialize, Clone, Default)]
+pub struct DroneRouteMeta {
+    pub id: String,
+    pub waypoints: Vec<[f32; 3]>,
+}
+
 #[derive(Resource, Default, Serialize, Clone)]
 pub struct ScenarioMetadata {
     pub departure_points: Vec<[f32; 3]>,
     pub landing_points: Vec<[f32; 3]>,
     pub obstacles: Vec<ObstacleConfig>,
     pub departure_landing_zones: Vec<RectZone>,
+    /// Full planned routes for all scheduled drones (viewer: dashed “planned” polyline).
+    #[serde(default)]
+    pub drone_routes: Vec<DroneRouteMeta>,
 }
 
 /// Tactical avoidance mode. `Python2` / `Python4a` / `Python4b` match the original
@@ -76,9 +88,12 @@ pub enum AvoidanceMode {
     Python4b,
 }
 
-/// `log_level`: "metrics" = no NDJSON (just counters in sim_metrics.json),
-///              "compact" = event-based NDJSON (small, for viewer),
-///              "full"    = periodic NDJSON at log_interval_s (large, for detailed replay).
+/// `route_ideal_distance_mode`: `polyline` = sum of waypoint legs; `chord` = first→last (Python 4B-style).
+    /// `route_metrics_timing`: `spawn` = legacy global totals; `mission_complete` = add ideal+real at landing.
+    ///
+    /// `log_level`: "metrics" = no NDJSON (just counters in sim_metrics.json),
+    ///              "compact" = event-based NDJSON (small, for viewer),
+    ///              "full"    = periodic NDJSON at log_interval_s (large, for detailed replay).
 #[derive(Serialize, Deserialize)]
 struct SimulationConfigJSON {
     duration: f32,
@@ -101,6 +116,12 @@ struct SimulationConfigJSON {
     /// DAIDALUS C++ parameters + Rust reactive steering (see `DaidalusTuneConfig`).
     #[serde(default)]
     daidalus_tune: crate::daidalus::DaidalusTuneConfig,
+    /// How ideal route length is defined: `polyline` (sum of legs) vs `chord` (Python 4B-style).
+    #[serde(default)]
+    route_ideal_distance_mode: Option<RouteIdealDistanceMode>,
+    /// When to add ideal/real into global totals: `spawn` (legacy) vs `mission_complete` (Python-style).
+    #[serde(default)]
+    route_metrics_timing: Option<RouteMetricsTiming>,
     // Legacy field — mapped to log_level internally
     #[serde(default)]
     log_periodic: Option<bool>,
@@ -114,7 +135,7 @@ struct SimConfigRoot {
 }
 
 #[derive(Resource, Default)]
-struct PendingDrones(pub Vec<DroneConfig>);
+pub struct PendingDrones(pub Vec<DroneConfig>);
 
 #[derive(Resource, Default)]
 struct ConfigDepartureZones(pub Vec<RectZone>);
@@ -151,6 +172,16 @@ fn main() {
     let physics_hz = root_config.simulation.physics_hz.unwrap_or(1.0);
     let daa_interval_s = root_config.simulation.daa_interval_s.unwrap_or(5.0);
     let daidalus_tune = root_config.simulation.daidalus_tune;
+    let route_cfg = RouteMetricsConfig {
+        ideal_mode: root_config
+            .simulation
+            .route_ideal_distance_mode
+            .unwrap_or(RouteIdealDistanceMode::Chord),
+        timing: root_config
+            .simulation
+            .route_metrics_timing
+            .unwrap_or(RouteMetricsTiming::MissionComplete),
+    };
 
     println!(
         "Starting simulation: duration {}s, collision threshold {}m, scenario {}, avoidance_mode {:?}, mqtt_enabled {}, log_level {:?}, physics_hz {}",
@@ -161,6 +192,10 @@ fn main() {
         enable_mqtt,
         log_level_str,
         physics_hz
+    );
+    println!(
+        "Route metrics: ideal_mode={:?}, timing={:?}",
+        route_cfg.ideal_mode, route_cfg.timing
     );
 
     let mut app = App::new();
@@ -190,6 +225,7 @@ fn main() {
             level: log_level,
             interval_s: log_interval_s,
         })
+        .insert_resource(route_cfg)
         .insert_resource(crate::core::PhysicsHz(physics_hz))
         .insert_resource(ProgressTimer(Timer::from_seconds(1.0, TimerMode::Repeating)))
         .init_resource::<ScenarioMetadata>()
@@ -270,6 +306,7 @@ fn load_scenario(
     mut commands: Commands,
     mut metadata: ResMut<ScenarioMetadata>,
     mut pending: ResMut<PendingDrones>,
+    mut metrics: ResMut<crate::core::logger::SimMetrics>,
     config: Res<SimulationConfig>,
     config_zones: Res<ConfigDepartureZones>,
 ) {
@@ -310,6 +347,15 @@ fn load_scenario(
     }
 
     let drone_count = scenario.drones.len();
+    metrics.total_scheduled_missions = drone_count as u32;
+    metadata.drone_routes = scenario
+        .drones
+        .iter()
+        .map(|d| DroneRouteMeta {
+            id: d.id.clone(),
+            waypoints: d.flight_plan.waypoints.clone(),
+        })
+        .collect();
     pending.0 = scenario.drones;
     println!("Scenario loaded: {} obstacles, {} drones (scheduled), {} departure/landing zones",
         metadata.obstacles.len(), drone_count, metadata.departure_landing_zones.len());
@@ -318,6 +364,7 @@ fn load_scenario(
 fn spawn_drones_by_schedule(
     time: Res<Time>,
     config: Res<SimulationConfig>,
+    route_cfg: Res<RouteMetricsConfig>,
     mut pending: ResMut<PendingDrones>,
     mut commands: Commands,
     mut metrics: ResMut<crate::core::logger::SimMetrics>,
@@ -332,11 +379,10 @@ fn spawn_drones_by_schedule(
             .map(|wp| Vec3::new(wp[0], wp[1], wp[2]))
             .collect();
         let start = waypoints.first().copied().unwrap_or(Vec3::ZERO);
-        // Accumulate ideal (flight-plan) distance for route inefficiency metric
-        let ideal_dist: f32 = waypoints.windows(2)
-            .map(|w| w[0].distance(w[1]))
-            .sum();
-        metrics.total_ideal_distance += ideal_dist as f64;
+        let ideal_dist = ideal_distance_m(&waypoints, route_cfg.ideal_mode);
+        if route_cfg.timing == RouteMetricsTiming::Spawn {
+            metrics.total_ideal_distance += ideal_dist as f64;
+        }
         let mut entity = commands.spawn((
             Drone { id: drone_config.id.clone() },
             drone_config.performance.clone(),
@@ -350,6 +396,11 @@ fn spawn_drones_by_schedule(
             FlightState::default(),
             Transform::from_translation(start),
             Velocity::default(),
+            MissionRouteMetrics {
+                ideal_m: ideal_dist as f64,
+                real_m: 0.0,
+                last_pos: Some(start),
+            },
         ));
         if let Some(kind) = drone_config.aircraft_kind {
             entity.insert(kind);
@@ -362,10 +413,17 @@ fn spawn_drones_by_schedule(
 /// preventing unbounded ECS growth during long simulations.
 fn despawn_completed_drones(
     mut commands: Commands,
-    query: Query<(Entity, &FlightState, &Transform)>,
+    route_cfg: Res<RouteMetricsConfig>,
+    mut metrics: ResMut<crate::core::logger::SimMetrics>,
+    query: Query<(Entity, &FlightState, &Transform, &MissionRouteMetrics)>,
 ) {
-    for (entity, state, transform) in query.iter() {
+    for (entity, state, transform, route) in query.iter() {
         if *state == FlightState::Completed && transform.translation.y < 2.0 {
+            metrics.completed_missions += 1;
+            if route_cfg.timing == RouteMetricsTiming::MissionComplete {
+                metrics.total_ideal_distance += route.ideal_m;
+                metrics.total_real_distance += route.real_m;
+            }
             commands.entity(entity).despawn();
         }
     }

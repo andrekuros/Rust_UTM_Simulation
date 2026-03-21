@@ -83,8 +83,12 @@ pub struct SimMetrics {
     pub macproxy_active: HashSet<(String, String)>,
     pub daa_alert_pairs: HashSet<(String, String)>,
     pub completed_missions: u32,
+    /// Set from scenario at load (`scenario.drones.len()`).
+    pub total_scheduled_missions: u32,
     pub total_real_distance: f64,
     pub total_ideal_distance: f64,
+    /// Filled on exit: why missions were still incomplete at `duration` (not spawned, or still in world).
+    pub incomplete_missions_by_reason: HashMap<String, u32>,
     drone_last_pos: HashMap<String, Vec3>,
 }
 
@@ -144,30 +148,42 @@ fn init_logging(
 // ── MACproxy system (runs every tick, cheap) ───────────────────────────
 
 fn macproxy_system(
-    query: Query<(&crate::agents::Drone, &Transform, &crate::agents::Velocity, &crate::agents::FlightState)>,
+    route_cfg: Res<crate::core::route_metrics::RouteMetricsConfig>,
+    mut query: Query<(
+        &crate::agents::Drone,
+        &Transform,
+        &crate::agents::Velocity,
+        &crate::agents::FlightState,
+        &mut crate::core::route_metrics::MissionRouteMetrics,
+    )>,
     active_collisions: Res<crate::daidalus::ActiveCollisions>,
     mut metrics: ResMut<SimMetrics>,
 ) {
+    use crate::core::route_metrics::RouteMetricsTiming;
+
     // Track distance for all moving drones
-    for (drone, transform, _vel, state) in query.iter() {
+    for (drone, transform, _vel, _state, mut route) in query.iter_mut() {
         let pos = transform.translation;
-        if let Some(last) = metrics.drone_last_pos.get(&drone.id) {
-            let d = pos.distance(*last);
-            if d < 500.0 { // sanity cap to ignore teleports
-                metrics.total_real_distance += d as f64;
+        match route_cfg.timing {
+            RouteMetricsTiming::Spawn => {
+                if let Some(last) = metrics.drone_last_pos.get(&drone.id) {
+                    let d = pos.distance(*last);
+                    if d < 500.0 {
+                        // sanity cap to ignore teleports
+                        metrics.total_real_distance += d as f64;
+                    }
+                }
+                metrics.drone_last_pos.insert(drone.id.clone(), pos);
             }
-        }
-        metrics.drone_last_pos.insert(drone.id.clone(), pos);
-
-        if *state == crate::agents::FlightState::Completed {
-            // Will be counted once and then entity despawns
-        }
-    }
-
-    // Count completed missions (entities about to despawn)
-    for (_drone, transform, _vel, state) in query.iter() {
-        if *state == crate::agents::FlightState::Completed && transform.translation.y < 2.0 {
-            metrics.completed_missions += 1;
+            RouteMetricsTiming::MissionComplete => {
+                if let Some(last) = route.last_pos {
+                    let d = pos.distance(last);
+                    if d < 500.0 {
+                        route.real_m += d as f64;
+                    }
+                }
+                route.last_pos = Some(pos);
+            }
         }
     }
 
@@ -181,8 +197,8 @@ fn macproxy_system(
 
     // MACproxy: check all airborne pairs using spatial hashing
     let airborne: Vec<(String, Vec3)> = query.iter()
-        .filter(|(_, t, _, _)| t.translation.y >= 5.0)
-        .map(|(d, t, _, _)| (d.id.clone(), t.translation))
+        .filter(|(_, t, _, _, _)| t.translation.y >= 5.0)
+        .map(|(d, t, _, _, _)| (d.id.clone(), t.translation))
         .collect();
 
     let cell = 50.0_f32;
@@ -254,6 +270,10 @@ fn build_alerts_for_drone(
     let mut alerts = Vec::new();
     let mut alert_ids = Vec::new();
     for alert in active_collisions.alerts.iter() {
+        let ownship_ok = alert.ownship_id.is_empty() || alert.ownship_id == drone_id;
+        if !ownship_ok {
+            continue;
+        }
         if alert.drone_a == drone_id {
             alerts.push(CollisionLog {
                 other_drone_id: alert.drone_b.clone(),
@@ -361,10 +381,49 @@ fn telemetry_system(
 
 fn export_on_exit(
     mut exit_events: EventReader<bevy::app::AppExit>,
-    metrics: Res<SimMetrics>,
+    pending: Res<crate::PendingDrones>,
+    drones: Query<(
+        &crate::agents::Drone,
+        &crate::agents::FlightState,
+        &Transform,
+        &crate::agents::FlightPlan,
+    )>,
+    mut metrics: ResMut<SimMetrics>,
     cfg: Res<LoggerConfig>,
+    route_cfg: Res<crate::core::route_metrics::RouteMetricsConfig>,
 ) {
-    if exit_events.is_empty() { return; }
+    let mut n_exit = 0u32;
+    for _ in exit_events.read() {
+        n_exit += 1;
+    }
+    if n_exit == 0 {
+        return;
+    }
+
+    use crate::agents::FlightState;
+    use crate::core::route_metrics::{RouteIdealDistanceMode, RouteMetricsTiming};
+
+    metrics.incomplete_missions_by_reason.clear();
+    *metrics
+        .incomplete_missions_by_reason
+        .entry("not_spawned".to_string())
+        .or_insert(0) += pending.0.len() as u32;
+
+    for (drone, state, transform, _plan) in drones.iter() {
+        let y = transform.translation.y;
+        let key = match *state {
+            FlightState::Idle => "active_idle",
+            FlightState::Takeoff => "active_takeoff",
+            FlightState::Cruise => "active_cruise",
+            FlightState::Landing => "active_landing",
+            FlightState::Completed if y >= 2.0 => "completed_airborne_not_landed",
+            FlightState::Completed => "completed_on_ground_pending_despawn",
+        };
+        *metrics
+            .incomplete_missions_by_reason
+            .entry(key.to_string())
+            .or_insert(0) += 1;
+    }
 
     // Always write sim_metrics.json (tiny file, always useful)
     let total_ideal = metrics.total_ideal_distance;
@@ -373,14 +432,32 @@ fn export_on_exit(
         (total_real - total_ideal) / total_ideal * 100.0
     } else { 0.0 };
 
+    let ideal_mode_s = match route_cfg.ideal_mode {
+        RouteIdealDistanceMode::Polyline => "polyline",
+        RouteIdealDistanceMode::Chord => "chord",
+    };
+    let timing_s = match route_cfg.timing {
+        RouteMetricsTiming::Spawn => "spawn",
+        RouteMetricsTiming::MissionComplete => "mission_complete",
+    };
+
+    let incomplete_sum: u32 = metrics.incomplete_missions_by_reason.values().sum();
+    let balance_ok = metrics.total_scheduled_missions == metrics.completed_missions + incomplete_sum;
+
     let metrics_json = serde_json::json!({
         "macproxy_count": metrics.macproxy_count,
         "macproxy_active_pairs": metrics.macproxy_active.len(),
         "daa_alert_pairs": metrics.daa_alert_pairs.len(),
+        "total_scheduled_missions": metrics.total_scheduled_missions,
         "completed_missions": metrics.completed_missions,
+        "incomplete_missions_by_reason": metrics.incomplete_missions_by_reason,
+        "incomplete_missions_total": incomplete_sum,
+        "mission_count_balance_ok": balance_ok,
         "total_real_distance_m": total_real,
         "total_ideal_distance_m": total_ideal,
         "route_inefficiency_pct": ineff_pct,
+        "route_ideal_distance_mode": ideal_mode_s,
+        "route_metrics_timing": timing_s,
     });
     if let Ok(mut f) = File::create("sim_metrics.json") {
         let _ = f.write_all(serde_json::to_string_pretty(&metrics_json).unwrap_or_default().as_bytes());

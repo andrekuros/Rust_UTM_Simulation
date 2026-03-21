@@ -259,6 +259,9 @@ def _patch_sim_config_for_ga(cfg_path: str, duration: float) -> None:
     sim["show_progress_bar"] = False
     sim["avoidance_mode"] = "Daidalus"
     sim.setdefault("daa_interval_s", 1.0)
+    # Match Python xTM route metrics (chord ideal; fold totals at mission complete).
+    sim.setdefault("route_ideal_distance_mode", "chord")
+    sim.setdefault("route_metrics_timing", "mission_complete")
     sim.setdefault(
         "daidalus_tune",
         {

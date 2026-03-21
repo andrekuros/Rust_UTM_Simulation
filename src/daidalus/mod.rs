@@ -65,6 +65,10 @@ pub struct DaidalusTuneConfig {
     pub cpp_lookahead_s: f32,
     /// If &gt; 0, passed to C++ `setHorizontalNMAC` (m).
     pub cpp_horizontal_nmac_m: f32,
+    /// Max horizontal distance (XZ) from the remaining flight-plan polyline for a reactive
+    /// avoidance target. Matches the spirit of Python2’s fixed lateral step, but keeps
+    /// DAIDALUS-based headings from “walking” arbitrarily far from the route. `0` = no clamp.
+    pub max_cross_track_m: f32,
 }
 
 impl Default for DaidalusTuneConfig {
@@ -78,6 +82,7 @@ impl Default for DaidalusTuneConfig {
             cpp_distance_filter_m: 0.0,
             cpp_lookahead_s: 0.0,
             cpp_horizontal_nmac_m: 0.0,
+            max_cross_track_m: 350.0,
         }
     }
 }
@@ -96,6 +101,9 @@ impl DaidalusTuneConfig {
 pub struct CollisionAlert {
     pub drone_a: String,
     pub drone_b: String,
+    /// Empty = legacy / symmetric (both aircraft may use the same band data).
+    /// Otherwise DAIDALUS bands are for this aircraft as **ownship** vs the other as traffic.
+    pub ownship_id: String,
     pub distance: f32,
     pub alert_level: i32,
     pub time_to_violation: f32,
@@ -276,6 +284,7 @@ fn legacy_geom_alerts(
         alerts.push(CollisionAlert {
             drone_a: id_a.clone(),
             drone_b: id_b.clone(),
+            ownship_id: String::new(),
             distance: dist,
             alert_level: 1,
             time_to_violation: 0.0,
@@ -355,7 +364,7 @@ fn run_daidalus_evaluation(
             continue;
         }
 
-        let res = bridge.inner.pin_mut().evaluate_pair(
+        let res_a = bridge.inner.pin_mut().evaluate_pair(
             &ffi::Vec3F {
                 x: pos_a.x,
                 y: pos_a.y,
@@ -378,15 +387,51 @@ fn run_daidalus_evaluation(
             },
         );
 
-        if res.alert_level > 0 || dist < threshold {
+        let res_b = bridge.inner.pin_mut().evaluate_pair(
+            &ffi::Vec3F {
+                x: pos_b.x,
+                y: pos_b.y,
+                z: pos_b.z,
+            },
+            &ffi::Vec3F {
+                x: vel_b.x,
+                y: vel_b.y,
+                z: vel_b.z,
+            },
+            &ffi::Vec3F {
+                x: pos_a.x,
+                y: pos_a.y,
+                z: pos_a.z,
+            },
+            &ffi::Vec3F {
+                x: vel_a.x,
+                y: vel_a.y,
+                z: vel_a.z,
+            },
+        );
+
+        if res_a.alert_level > 0 || dist < threshold {
             alerts.push(CollisionAlert {
                 drone_a: id_a.clone(),
                 drone_b: id_b.clone(),
+                ownship_id: id_a.clone(),
                 distance: dist,
-                alert_level: res.alert_level,
-                time_to_violation: res.time_to_violation,
-                min_safe_heading: res.min_safe_heading,
-                max_safe_heading: res.max_safe_heading,
+                alert_level: res_a.alert_level,
+                time_to_violation: res_a.time_to_violation,
+                min_safe_heading: res_a.min_safe_heading,
+                max_safe_heading: res_a.max_safe_heading,
+            });
+        }
+        if res_b.alert_level > 0 || dist < threshold {
+            alerts.push(CollisionAlert {
+                drone_a: id_a.clone(),
+                drone_b: id_b.clone(),
+                ownship_id: id_b.clone(),
+                distance: dist,
+                alert_level: res_b.alert_level,
+                time_to_violation: res_b.time_to_violation,
+                min_safe_heading: res_b.min_safe_heading,
+                max_safe_heading: res_b.max_safe_heading,
             });
         }
     }
@@ -458,6 +503,71 @@ fn daa_monitoring_system(
 }
 
 /// Closest threat in horizontal/vertical DAA envelope (Python-style).
+fn horizontal_dist2_xz(a: Vec3, b: Vec3) -> f32 {
+    let dx = a.x - b.x;
+    let dz = a.z - b.z;
+    dx * dx + dz * dz
+}
+
+/// Closest point on segment AB to point P in the XZ plane (Y from `p`).
+fn closest_point_on_segment_xz(p: Vec3, a: Vec3, b: Vec3) -> Vec3 {
+    let abx = b.x - a.x;
+    let abz = b.z - a.z;
+    let apx = p.x - a.x;
+    let apz = p.z - a.z;
+    let ab_len_sq = abx * abx + abz * abz;
+    let t = if ab_len_sq < 1e-6 {
+        0.0
+    } else {
+        (apx * abx + apz * abz) / ab_len_sq
+    }
+    .clamp(0.0, 1.0);
+    Vec3::new(a.x + abx * t, p.y, a.z + abz * t)
+}
+
+/// Closest point on polyline [start_idx ..] to `p` in XZ.
+fn closest_point_on_polyline_xz(p: Vec3, waypoints: &[Vec3], start_idx: usize) -> Vec3 {
+    if waypoints.len() < 2 || start_idx >= waypoints.len() {
+        return p;
+    }
+    let mut best = p;
+    let mut best_d2 = f32::MAX;
+    for i in start_idx..(waypoints.len() - 1) {
+        let c = closest_point_on_segment_xz(p, waypoints[i], waypoints[i + 1]);
+        let d2 = horizontal_dist2_xz(p, c);
+        if d2 < best_d2 {
+            best_d2 = d2;
+            best = c;
+        }
+    }
+    best
+}
+
+/// Pull `candidate` horizontally toward the polyline if farther than `max_m` (XZ).
+fn clamp_to_route_corridor_xz(
+    candidate: Vec3,
+    waypoints: &[Vec3],
+    start_idx: usize,
+    max_m: f32,
+) -> Vec3 {
+    if max_m <= 0.0 || waypoints.len() < 2 {
+        return candidate;
+    }
+    let on = closest_point_on_polyline_xz(candidate, waypoints, start_idx);
+    let dx = candidate.x - on.x;
+    let dz = candidate.z - on.z;
+    let h = (dx * dx + dz * dz).sqrt();
+    if h <= max_m || h < 1e-4 {
+        candidate
+    } else {
+        Vec3::new(
+            on.x + dx / h * max_m,
+            candidate.y,
+            on.z + dz / h * max_m,
+        )
+    }
+}
+
 fn closest_threat_pos(
     self_id: &str,
     self_pos: Vec3,
@@ -574,8 +684,9 @@ fn reactive_avoidance_system(
             .alerts
             .iter()
             .filter(|a| {
-                (a.drone_a == drone.id || a.drone_b == drone.id)
-                    && a.alert_level >= tune.min_alert_level
+                let involved = a.drone_a == drone.id || a.drone_b == drone.id;
+                let ownship_ok = a.ownship_id.is_empty() || a.ownship_id == drone.id;
+                involved && ownship_ok && a.alert_level >= tune.min_alert_level
             })
             .max_by_key(|a| a.alert_level);
 
@@ -584,8 +695,9 @@ fn reactive_avoidance_system(
             let offset = match mode {
                 crate::AvoidanceMode::Fixed => Vec3::new(1.0, 0.0, 1.0).normalize() * 200.0,
                 crate::AvoidanceMode::Daidalus => {
+                    // Horizontal-only offset (legacy fallback had Y≠0 and caused runaway climb).
                     if alert.min_safe_heading == 0.0 && alert.max_safe_heading == 0.0 {
-                        Vec3::new(15.0, 10.0, 15.0).normalize() * tune.evasion_offset_m
+                        Vec3::new(1.0, 0.0, 1.0).normalize() * tune.evasion_offset_m
                     } else {
                         let b = tune.heading_blend.clamp(0.0, 1.0);
                         let lo = alert.min_safe_heading;
@@ -617,12 +729,29 @@ fn reactive_avoidance_system(
                 }
                 crate::AvoidanceMode::None
                 | crate::AvoidanceMode::Python2
-                | crate::AvoidanceMode::Python4a
+                |                 crate::AvoidanceMode::Python4a
                 | crate::AvoidanceMode::Python4b => Vec3::ZERO,
             };
 
             if offset != Vec3::ZERO {
-                avoidance.target = Some(pos + offset);
+                let mut offset = offset;
+                if mode == crate::AvoidanceMode::Daidalus {
+                    offset.y = 0.0;
+                }
+                let mut target = pos + offset;
+                if mode == crate::AvoidanceMode::Daidalus {
+                    target.y = pos.y;
+                }
+                if mode == crate::AvoidanceMode::Daidalus && tune.max_cross_track_m > 0.0 {
+                    target = clamp_to_route_corridor_xz(
+                        target,
+                        &plan.waypoints,
+                        plan.current_waypoint_index,
+                        tune.max_cross_track_m,
+                    );
+                    target.y = pos.y;
+                }
+                avoidance.target = Some(target);
                 let dur = if mode == crate::AvoidanceMode::Daidalus {
                     tune.evasion_duration_s.max(0.1)
                 } else {

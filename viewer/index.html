@@ -72,8 +72,8 @@
 
     <div id="controls">
         <h3>UTM Telemetry Viewer</h3>
-        <input type="file" id="fileInput" accept=".json">
-        <div id="status" style="margin-top: 10px; font-size: 0.9em; color: #aaa;">Please load simulation_telemetry.json
+        <input type="file" id="fileInput" accept=".json,.ndjson,application/x-ndjson">
+        <div id="status" style="margin-top: 10px; font-size: 0.9em; color: #aaa;">Load simulation_telemetry.ndjson (metadata line includes planned routes).
         </div>
     </div>
 
@@ -96,6 +96,23 @@
         <div style="display: flex; align-items: center; gap: 5px; margin-left: 10px;">
             <input type="checkbox" id="showSuggestions" checked>
             <label style="font-size: 0.8em;" for="showSuggestions">Show DAIDALUS Suggestions</label>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px; margin-left: 10px; flex-grow: 1; min-width: 0;">
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <input type="checkbox" id="showRoutes" checked>
+                <label style="font-size: 0.85em;" for="showRoutes"><strong>Routes</strong></label>
+                <input type="checkbox" id="showPlanned" checked>
+                <label style="font-size: 0.8em;" for="showPlanned">Planned (dashed)</label>
+                <input type="checkbox" id="showExecuted" checked>
+                <label style="font-size: 0.8em;" for="showExecuted">Executed (solid)</label>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 0.78em; color: #ccc;">
+                <span title="Show only route data in a sliding sim-time window around the playhead">Time window (sim clock):</span>
+                <label>− <input type="number" id="routeWinBehindMin" value="3" min="0" step="0.5" style="width: 3.2em; background: #333; color: #fff; border: 1px solid #555;"> min</label>
+                <label>+ <input type="number" id="routeWinAheadMin" value="5" min="0" step="0.5" style="width: 3.2em; background: #333; color: #fff; border: 1px solid #555;"> min</label>
+                <span title="Used to turn the time window into approximate along-path length for planned-route clipping">@</span>
+                <label><input type="number" id="routeAssumedSpeedMps" value="15" min="1" step="1" style="width: 3.5em; background: #333; color: #fff; border: 1px solid #555;"> m/s</label>
+            </div>
         </div>
     </div>
 
@@ -129,6 +146,8 @@
         let droneObjects = new Map();
         let metadata = null;
         let padObjects = [];
+        let plannedRouteLines = [];
+        let executedRouteLines = new Map();
         let isPlaying = false;
         let currentTime = 0;
         let totalTime = 0;
@@ -248,6 +267,276 @@
             }
         });
 
+        /** Match sim “airborne” (e.g. DAA / avoidance) — hide route clutter on ground. */
+        const ROUTE_AIRBORNE_Y = 5.0;
+
+        function getRouteWindowParams() {
+            const behindMin = Math.max(0, parseFloat(document.getElementById('routeWinBehindMin').value) || 0);
+            const aheadMin = Math.max(0, parseFloat(document.getElementById('routeWinAheadMin').value) || 0);
+            const v = Math.max(1, parseFloat(document.getElementById('routeAssumedSpeedMps').value) || 15);
+            return {
+                behindS: behindMin * 60,
+                aheadS: aheadMin * 60,
+                behindM: behindMin * 60 * v,
+                aheadM: aheadMin * 60 * v
+            };
+        }
+
+        function droneOverlapsSimTimeWindow(timeline, T, behindS, aheadS) {
+            if (!timeline || timeline.length === 0) return false;
+            const first = timeline[0].t;
+            const last = timeline[timeline.length - 1].t;
+            const w0 = T - behindS;
+            const w1 = T + aheadS;
+            return last >= w0 && first <= w1;
+        }
+
+        function xzDist2(a, b) {
+            const dx = a.x - b.x;
+            const dz = a.z - b.z;
+            return dx * dx + dz * dz;
+        }
+
+        function closestPointOnSegmentXZ(p, a, b) {
+            const abx = b.x - a.x;
+            const abz = b.z - a.z;
+            const apx = p.x - a.x;
+            const apz = p.z - a.z;
+            const ab2 = abx * abx + abz * abz;
+            const t = ab2 < 1e-9 ? 0 : Math.max(0, Math.min(1, (apx * abx + apz * abz) / ab2));
+            return new THREE.Vector3(a.x + abx * t, p.y, a.z + abz * t);
+        }
+
+        /** Cumulative XZ arc length at each waypoint index. */
+        function cumulativeLengthsXZ(pts) {
+            const cum = [0];
+            for (let i = 0; i < pts.length - 1; i++) {
+                const dx = pts[i + 1].x - pts[i].x;
+                const dz = pts[i + 1].z - pts[i].z;
+                cum.push(cum[cum.length - 1] + Math.sqrt(dx * dx + dz * dz));
+            }
+            return cum;
+        }
+
+        /** Point at arc length `s` along polyline (XZ lengths). */
+        function pointOnPolylineAtS(pts, cum, s) {
+            const total = cum[cum.length - 1];
+            const ss = Math.max(0, Math.min(s, total));
+            for (let i = 0; i < pts.length - 1; i++) {
+                if (ss >= cum[i] - 1e-4 && ss <= cum[i + 1] + 1e-4) {
+                    const seg = cum[i + 1] - cum[i];
+                    const t = seg < 1e-6 ? 0 : (ss - cum[i]) / seg;
+                    const a = pts[i];
+                    const b = pts[i + 1];
+                    return new THREE.Vector3(
+                        a.x + (b.x - a.x) * t,
+                        a.y + (b.y - a.y) * t,
+                        a.z + (b.z - a.z) * t
+                    );
+                }
+            }
+            return pts[pts.length - 1].clone();
+        }
+
+        /** Sub-polyline (XZ arc length) near horizontal position `pos`. */
+        function slicePlannedPolylineNear(waypointsVec3, pos, backM, aheadM) {
+            if (!waypointsVec3 || waypointsVec3.length < 2) return [];
+            const pts = waypointsVec3;
+            const cum = cumulativeLengthsXZ(pts);
+            const total = cum[cum.length - 1];
+            let bestS = 0;
+            let bestD2 = Infinity;
+            for (let i = 0; i < pts.length - 1; i++) {
+                const a = pts[i];
+                const b = pts[i + 1];
+                const c = closestPointOnSegmentXZ(pos, a, b);
+                const d2 = xzDist2(pos, c);
+                if (d2 < bestD2) {
+                    bestD2 = d2;
+                    const seg = cum[i + 1] - cum[i];
+                    const abx = b.x - a.x;
+                    const abz = b.z - a.z;
+                    const apx = c.x - a.x;
+                    const apz = c.z - a.z;
+                    const ab2 = abx * abx + abz * abz;
+                    const t = ab2 < 1e-9 ? 0 : Math.max(0, Math.min(1, (apx * abx + apz * abz) / ab2));
+                    bestS = cum[i] + t * seg;
+                }
+            }
+            const sLo = Math.max(0, bestS - backM);
+            const sHi = Math.min(total, bestS + aheadM);
+            if (sHi <= sLo + 0.5) return [];
+
+            const out = [];
+            out.push(pointOnPolylineAtS(pts, cum, sLo));
+            for (let i = 0; i < pts.length; i++) {
+                if (cum[i] > sLo && cum[i] < sHi) {
+                    out.push(pts[i].clone());
+                }
+            }
+            out.push(pointOnPolylineAtS(pts, cum, sHi));
+            const thin = [out[0]];
+            for (let k = 1; k < out.length; k++) {
+                if (thin[thin.length - 1].distanceToSquared(out[k]) > 0.01) {
+                    thin.push(out[k]);
+                }
+            }
+            return thin.length >= 2 ? thin : [];
+        }
+
+        function colorForDroneId(id) {
+            let h = 0;
+            for (let i = 0; i < id.length; i++) {
+                h = (((h << 5) - h) + id.charCodeAt(i)) | 0;
+            }
+            return new THREE.Color().setHSL((Math.abs(h) % 360) / 360, 0.7, 0.52);
+        }
+
+        function isDroneAirborneAt(timeline, time) {
+            const st = getInterpolatedState(timeline, time);
+            if (!st) return false;
+            return st.pos[1] >= ROUTE_AIRBORNE_Y;
+        }
+
+        function clearRouteLines() {
+            plannedRouteLines.forEach(l => scene.remove(l));
+            plannedRouteLines = [];
+            executedRouteLines.forEach(l => scene.remove(l));
+            executedRouteLines.clear();
+        }
+
+        function setupPlannedRoutes() {
+            if (!metadata || !metadata.drone_routes || metadata.drone_routes.length === 0) return;
+            for (const r of metadata.drone_routes) {
+                if (!r.waypoints || r.waypoints.length < 2) continue;
+                const pts = r.waypoints.map(wp => new THREE.Vector3(wp[0], wp[1], wp[2]));
+                const geom = new THREE.BufferGeometry().setFromPoints([pts[0], pts[1]]);
+                const mat = new THREE.LineDashedMaterial({
+                    color: colorForDroneId(r.id),
+                    dashSize: 45,
+                    gapSize: 28,
+                    transparent: true,
+                    opacity: 0.78
+                });
+                const line = new THREE.Line(geom, mat);
+                line.computeLineDistances();
+                line.userData.droneId = r.id;
+                line.userData.plannedPts = pts;
+                line.visible = false;
+                scene.add(line);
+                plannedRouteLines.push(line);
+            }
+        }
+
+        /** Executed samples in [time − behind, time + ahead] (ahead only affects eligibility; samples are ≤ time). */
+        function pointsForExecutedWindowed(timeline, time, behindS, aheadS) {
+            if (!timeline || timeline.length === 0) return [];
+            const tLo = time - behindS;
+            const tHi = time + aheadS;
+            const out = [];
+            for (let i = 0; i < timeline.length; i++) {
+                const ev = timeline[i];
+                if (ev.t > tHi) break;
+                if (ev.t >= tLo && ev.t <= tHi) {
+                    out.push(new THREE.Vector3(ev.pos[0], ev.pos[1], ev.pos[2]));
+                }
+            }
+            const st = getInterpolatedState(timeline, time);
+            if (st && time >= tLo && time <= tHi) {
+                const cur = new THREE.Vector3(st.pos[0], st.pos[1], st.pos[2]);
+                if (out.length === 0) {
+                    out.push(cur);
+                } else {
+                    const last = out[out.length - 1];
+                    if (last.distanceToSquared(cur) > 0.0004) out.push(cur);
+                }
+            }
+            return out;
+        }
+
+        function updatePlannedRoutesDynamic(time) {
+            const master = document.getElementById('showRoutes').checked;
+            const showP = document.getElementById('showPlanned').checked;
+            const { behindS, aheadS, behindM, aheadM } = getRouteWindowParams();
+
+            plannedRouteLines.forEach(line => {
+                if (!master || !showP) {
+                    line.visible = false;
+                    return;
+                }
+                const id = line.userData.droneId;
+                const tl = droneTimelines.get(id);
+                const pts0 = line.userData.plannedPts;
+                if (!tl || !pts0 || pts0.length < 2) {
+                    line.visible = false;
+                    return;
+                }
+                if (!droneOverlapsSimTimeWindow(tl, time, behindS, aheadS)) {
+                    line.visible = false;
+                    return;
+                }
+                if (!isDroneAirborneAt(tl, time)) {
+                    line.visible = false;
+                    return;
+                }
+                const st = getInterpolatedState(tl, time);
+                if (!st) {
+                    line.visible = false;
+                    return;
+                }
+                const cur = new THREE.Vector3(st.pos[0], st.pos[1], st.pos[2]);
+                const slice = slicePlannedPolylineNear(pts0, cur, behindM, aheadM);
+                if (slice.length < 2) {
+                    line.visible = false;
+                    return;
+                }
+                line.geometry.setFromPoints(slice);
+                line.computeLineDistances();
+                line.visible = true;
+            });
+        }
+
+        function updateExecutedRoutes(time) {
+            const master = document.getElementById('showRoutes').checked;
+            const showE = document.getElementById('showExecuted').checked;
+            if (!master || !showE) {
+                executedRouteLines.forEach(l => { l.visible = false; });
+                return;
+            }
+            const { behindS, aheadS } = getRouteWindowParams();
+            droneTimelines.forEach((timeline, id) => {
+                if (!droneOverlapsSimTimeWindow(timeline, time, behindS, aheadS)) {
+                    const line = executedRouteLines.get(id);
+                    if (line) line.visible = false;
+                    return;
+                }
+                if (!isDroneAirborneAt(timeline, time)) {
+                    const line = executedRouteLines.get(id);
+                    if (line) line.visible = false;
+                    return;
+                }
+                const pts = pointsForExecutedWindowed(timeline, time, behindS, aheadS);
+                let line = executedRouteLines.get(id);
+                if (pts.length < 2) {
+                    if (line) line.visible = false;
+                    return;
+                }
+                if (!line) {
+                    const geom = new THREE.BufferGeometry();
+                    const mat = new THREE.LineBasicMaterial({
+                        color: colorForDroneId(id),
+                        transparent: true,
+                        opacity: 0.88
+                    });
+                    line = new THREE.Line(geom, mat);
+                    scene.add(line);
+                    executedRouteLines.set(id, line);
+                }
+                line.geometry.setFromPoints(pts);
+                line.visible = true;
+            });
+        }
+
         function finalizeViewerLoading() {
             if (droneTimelines.size === 0) {
                 document.getElementById('status').innerText = `No drones found.`;
@@ -255,10 +544,12 @@
             }
 
             clearStaticObjects();
+            clearRouteLines();
             if (metadata) {
                 if (metadata.departure_points) metadata.departure_points.forEach(p => createPad(p, 0x00ff00));
                 if (metadata.landing_points) metadata.landing_points.forEach(p => createPad(p, 0x0088ff));
                 if (metadata.obstacles) metadata.obstacles.forEach(obs => createObstacle(obs));
+                setupPlannedRoutes();
             }
 
             const timeline = document.getElementById('timeline');
@@ -345,6 +636,8 @@
 
         // --- 4. Render Logic ---
         function renderFrame(time) {
+            updateExecutedRoutes(time);
+            updatePlannedRoutesDynamic(time);
             droneTimelines.forEach((timeline, id) => {
                 const state = getInterpolatedState(timeline, time);
 
@@ -422,6 +715,22 @@
 
         document.getElementById('playSpeed').addEventListener('change', (e) => {
             playbackSpeed = parseFloat(e.target.value);
+        });
+
+        function onRouteOptionChange() {
+            if (document.getElementById('showPlanned').checked && plannedRouteLines.length === 0 && metadata && metadata.drone_routes) {
+                setupPlannedRoutes();
+            }
+            renderFrame(currentTime);
+        }
+
+        document.getElementById('showRoutes').addEventListener('change', onRouteOptionChange);
+        document.getElementById('showPlanned').addEventListener('change', onRouteOptionChange);
+        document.getElementById('showExecuted').addEventListener('change', onRouteOptionChange);
+        ['routeWinBehindMin', 'routeWinAheadMin', 'routeAssumedSpeedMps'].forEach(id => {
+            const el = document.getElementById(id);
+            el.addEventListener('change', onRouteOptionChange);
+            el.addEventListener('input', onRouteOptionChange);
         });
 
         document.getElementById('timeline').addEventListener('input', (e) => {
