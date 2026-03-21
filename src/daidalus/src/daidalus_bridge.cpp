@@ -3,9 +3,18 @@
 
 using namespace larcfm;
 
-DaidalusWrapper::DaidalusWrapper() {
+DaidalusWrapper::DaidalusWrapper(const DaidalusCppTune& t) {
     daa = std::make_unique<Daidalus>();
     daa->set_DO_365B();
+    if (t.distance_filter_m > 0.0f) {
+        daa->setDistanceFilter(static_cast<double>(t.distance_filter_m));
+    }
+    if (t.lookahead_s > 0.0f) {
+        daa->setLookaheadTime(static_cast<double>(t.lookahead_s), "s");
+    }
+    if (t.horizontal_nmac_m > 0.0f) {
+        daa->setHorizontalNMAC(static_cast<double>(t.horizontal_nmac_m));
+    }
 }
 
 DaidalusWrapper::~DaidalusWrapper() {}
@@ -49,6 +58,6 @@ DaidalusResult DaidalusWrapper::evaluate_pair(
     return res;
 }
 
-std::unique_ptr<DaidalusWrapper> new_daidalus() {
-    return std::make_unique<DaidalusWrapper>();
+std::unique_ptr<DaidalusWrapper> new_daidalus(const DaidalusCppTune& t) {
+    return std::make_unique<DaidalusWrapper>(t);
 }

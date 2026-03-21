@@ -60,12 +60,20 @@ pub struct ScenarioMetadata {
     pub departure_landing_zones: Vec<RectZone>,
 }
 
-#[derive(Serialize, Deserialize, Default, Clone, Copy, PartialEq, Eq)]
+/// Tactical avoidance mode. `Python2` / `Python4a` / `Python4b` match the original
+/// `testeprimordial*.py` experiments (geometric DAA only, no NASA DAIDALUS C++).
+#[derive(Debug, Serialize, Deserialize, Default, Clone, Copy, PartialEq, Eq)]
 pub enum AvoidanceMode {
     #[default]
     None,
     Fixed,
     Daidalus,
+    /// Scenario 2: 150 m / 30 m shell, 90° tangential evasion for 8 s.
+    Python2,
+    /// Scenario 4A: 25 m / 12 m DAA band, +5 m route penalty per tick (no lateral steer).
+    Python4a,
+    /// Scenario 4B: 25 m / 12 m, ±60° from track for 3 s, cruise speed ±1.5 m/s wind.
+    Python4b,
 }
 
 /// `log_level`: "metrics" = no NDJSON (just counters in sim_metrics.json),
@@ -90,6 +98,9 @@ struct SimulationConfigJSON {
     /// DAIDALUS evaluation interval in seconds. Higher = faster but less responsive. Default 5.
     #[serde(default)]
     daa_interval_s: Option<f32>,
+    /// DAIDALUS C++ parameters + Rust reactive steering (see `DaidalusTuneConfig`).
+    #[serde(default)]
+    daidalus_tune: crate::daidalus::DaidalusTuneConfig,
     // Legacy field — mapped to log_level internally
     #[serde(default)]
     log_periodic: Option<bool>,
@@ -139,13 +150,14 @@ fn main() {
     };
     let physics_hz = root_config.simulation.physics_hz.unwrap_or(1.0);
     let daa_interval_s = root_config.simulation.daa_interval_s.unwrap_or(5.0);
+    let daidalus_tune = root_config.simulation.daidalus_tune;
 
     println!(
         "Starting simulation: duration {}s, collision threshold {}m, scenario {}, avoidance_mode {:?}, mqtt_enabled {}, log_level {:?}, physics_hz {}",
         sim_duration,
         collision_threshold,
         scenario_file,
-        avoidance_mode as u8,
+        avoidance_mode,
         enable_mqtt,
         log_level_str,
         physics_hz
@@ -170,6 +182,10 @@ fn main() {
         })
         .insert_resource(crate::daidalus::ReactiveDronesConfig(avoidance_mode))
         .insert_resource(crate::daidalus::DaaIntervalConfig(daa_interval_s))
+        .insert_resource(daidalus_tune)
+        .insert_resource(crate::daidalus::Python4bWind(
+            avoidance_mode == AvoidanceMode::Python4b,
+        ))
         .insert_resource(crate::core::logger::LoggerConfig {
             level: log_level,
             interval_s: log_interval_s,

@@ -5,7 +5,7 @@
 // Forward declare C++ type for cxx's generated header
 class DaidalusWrapper;
 
-#include "hpm_utm_simulator/src/daidalus/mod.rs.h" 
+#include "hpm_utm_simulator/src/daidalus/mod.rs.h"
 
 namespace larcfm {
     class Daidalus;
@@ -15,7 +15,7 @@ class DaidalusWrapper {
 private:
     std::unique_ptr<larcfm::Daidalus> daa;
 public:
-    DaidalusWrapper();
+    explicit DaidalusWrapper(const DaidalusCppTune& t);
     ~DaidalusWrapper();
     
     DaidalusResult evaluate_pair(
@@ -24,4 +24,4 @@ public:
     );
 };
 
-std::unique_ptr<DaidalusWrapper> new_daidalus();
+std::unique_ptr<DaidalusWrapper> new_daidalus(const DaidalusCppTune& t);

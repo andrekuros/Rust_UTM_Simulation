@@ -379,12 +379,13 @@ def generate_missions(num_drones: int, scenario: str, seed: int = 42):
 
 # ── Avoidance mode mapping ──────────────────────────────────────────────
 
+# Matches testeprimordial*.py tactical layer (geometric DAA only — no NASA DAIDALUS).
 SCENARIO_AVOIDANCE = {
     "1": "None",
-    "2": "Daidalus",
+    "2": "Python2",
     "3": "None",
-    "4a": "Daidalus",
-    "4b": "Daidalus",
+    "4a": "Python4a",
+    "4b": "Python4b",
 }
 
 # ── Output generation ───────────────────────────────────────────────────
@@ -416,7 +417,7 @@ def write_scenario(output_dir: str, scenario: str, num_drones: int, seed: int = 
             "log_level": log_level,
             "log_interval_s": log_interval,
             "physics_hz": physics_hz,
-            "daa_interval_s": 5.0,
+            "daa_interval_s": 1.0,
         },
     }
     config_path = os.path.join(output_dir, "config", "sim_config.json")

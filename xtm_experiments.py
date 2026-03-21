@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
 """
 xTM Experiment Orchestrator — runs all five Python-equivalent scenarios
-through the Rust/DAIDALUS simulator and produces comparison charts.
+through the Rust simulator and produces comparison charts.
+
+Tactical DAA follows the original testeprimordial*.py geometry (Python2 / Python4a / Python4b
+in sim_config.json), not NASA DAIDALUS — use avoidance_mode \"Daidalus\" in sim_config only if
+you explicitly want the C++ DAIDALUS monitor + bands.
 
 Scenarios:
   1   Baseline (no DAA, no xTM)
-  2   DAIDALUS DAA only
+  2   Python-style DAA only (150m/30m, 90° / 8s)
   3   xTM only (30m/15m tubes)
-  4a  xTM (22m/12m) + DAIDALUS DAA
-  4b  xTM (30m/15m elastic) + DAIDALUS DAA
+  4a  xTM (22m/12m) + Python 4A DAA (25m/12m, route penalty)
+  4b  xTM (30m/15m elastic) + Python 4B DAA (±60° / 3s) + wind on cruise speed
 
 Usage:
     python xtm_experiments.py                        # run all defaults
