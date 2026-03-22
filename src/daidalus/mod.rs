@@ -69,9 +69,9 @@ pub struct DaidalusTuneConfig {
     /// avoidance target. Matches the spirit of Python2’s fixed lateral step, but keeps
     /// DAIDALUS-based headings from “walking” arbitrarily far from the route. `0` = no clamp.
     pub max_cross_track_m: f32,
-    /// Horizontal distance (m) to the **last** mission waypoint: below this, Daidalus reactive
-    /// steering is disabled so aircraft can complete landing instead of orbiting with a partner
-    /// at the same hub. `0` = disable this guard.
+    /// Horizontal distance (m) to the **last** mission waypoint while the active target **is** that
+    /// waypoint (final leg only): below this, Daidalus reactive steering is disabled so aircraft
+    /// can complete landing instead of orbiting with a partner at the same hub. `0` = disable.
     #[serde(default = "default_final_approach_no_reactive_radius_m")]
     pub final_approach_no_reactive_radius_m: f32,
 }
@@ -487,7 +487,12 @@ fn run_daidalus_evaluation(
             },
         );
 
-        if res_a.alert_level > 0 || dist < threshold {
+        // DAIDALUS can alert one ownship and not the other for the same geometry. Emit *both*
+        // perspectives whenever the pair is active, so reactive steering is not one-sided when
+        // `dist` is above `collision_threshold` but still inside the pair envelope.
+        let pair_active =
+            res_a.alert_level > 0 || res_b.alert_level > 0 || dist < threshold;
+        if pair_active {
             alerts.push(CollisionAlert {
                 drone_a: id_a.clone(),
                 drone_b: id_b.clone(),
@@ -498,8 +503,6 @@ fn run_daidalus_evaluation(
                 min_safe_heading: res_a.min_safe_heading,
                 max_safe_heading: res_a.max_safe_heading,
             });
-        }
-        if res_b.alert_level > 0 || dist < threshold {
             alerts.push(CollisionAlert {
                 drone_a: id_a.clone(),
                 drone_b: id_b.clone(),
@@ -707,7 +710,6 @@ fn reactive_avoidance_system(
     reactive_cfg: Option<Res<ReactiveDronesConfig>>,
     active_collisions: Res<ActiveCollisions>,
     daidalus_tune: Res<DaidalusTuneConfig>,
-    safety: Res<SafetyConfig>,
     mut query: Query<(
         &crate::agents::Drone,
         &Transform,
@@ -778,18 +780,23 @@ fn reactive_avoidance_system(
     }
 
     let tune = *daidalus_tune;
-    let thresh = safety.collision_threshold;
-    for (drone, transform, mut avoidance, plan, state) in query.iter_mut() {
+    for (drone, transform, mut avoidance, plan, _state) in query.iter_mut() {
         let pos = transform.translation;
 
-        // Avoid fighting the same landing point: disable lateral Daidalus targets on final approach
-        // or while descending, so paired traffic does not orbit indefinitely.
+        // Avoid fighting the same landing point: disable lateral Daidalus targets only on the
+        // final leg when horizontally near the **last** waypoint. (Distance to the last waypoint
+        // alone is not enough: on an earlier leg you can pass near that XY while still navigating
+        // to a different waypoint.) Do not use `FlightState::Landing` — that state is set for any
+        // descent (vy < -0.5), which would disable avoidance for most of the mission.
         if mode == crate::AvoidanceMode::Daidalus {
+            let on_last_leg = !plan.waypoints.is_empty()
+                && plan.current_waypoint_index == plan.waypoints.len() - 1;
             let on_final = tune.final_approach_no_reactive_radius_m > 0.0
+                && on_last_leg
                 && horizontal_dist_to_last_waypoint_xz(pos, plan)
                     .map(|d| d <= tune.final_approach_no_reactive_radius_m)
                     .unwrap_or(false);
-            if *state == crate::agents::FlightState::Landing || on_final {
+            if on_final {
                 avoidance.target = None;
                 avoidance.until_time = 0.0;
                 continue;
@@ -815,11 +822,10 @@ fn reactive_avoidance_system(
                 if a.alert_level >= tune.min_alert_level {
                     return true;
                 }
-                // `run_daidalus_evaluation` still emits a pair when dist < threshold even if C++
-                // returns alert_level==0 — those must steer or the craft "ignore" close traffic.
-                mode == crate::AvoidanceMode::Daidalus
+                // Pair was only admitted when close or when either side had a DAIDALUS alert; the
+                // other ownship may still be alert_level 0 — still steer (fallback heading path).
+                (mode == crate::AvoidanceMode::Daidalus || mode == crate::AvoidanceMode::Fixed)
                     && a.alert_level == 0
-                    && a.distance < thresh
             })
             .max_by_key(|a| a.alert_level);
 
