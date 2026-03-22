@@ -1,0 +1,373 @@
+{
+  "comparisons": [
+    {
+      "scenario": "1",
+      "python_reference": "testeprimordial1 \u2014 blind baseline",
+      "no_daidalus": {
+        "macproxy_count": 0,
+        "macproxy_active_pairs": 0,
+        "daa_alert_pairs": 0,
+        "total_scheduled_missions": 355,
+        "completed_missions": 0,
+        "incomplete_missions_total": 355,
+        "route_inefficiency_pct": 0.0,
+        "total_real_distance_m": 0.0,
+        "total_ideal_distance_m": 0.0
+      },
+      "daidalus": {
+        "macproxy_count": 0,
+        "macproxy_active_pairs": 0,
+        "daa_alert_pairs": 0,
+        "total_scheduled_missions": 355,
+        "completed_missions": 0,
+        "incomplete_missions_total": 355,
+        "route_inefficiency_pct": 0.0,
+        "total_real_distance_m": 0.0,
+        "total_ideal_distance_m": 0.0
+      },
+      "delta_daidalus_minus_baseline": {
+        "macproxy_count": 0.0,
+        "route_inefficiency_pct": 0.0,
+        "completed_missions": 0.0,
+        "daa_alert_pairs": 0.0
+      }
+    },
+    {
+      "scenario": "2",
+      "python_reference": "testeprimordial2 \u2014 geometric DAA, no xTM",
+      "no_daidalus": {
+        "macproxy_count": 0,
+        "macproxy_active_pairs": 0,
+        "daa_alert_pairs": 0,
+        "total_scheduled_missions": 449,
+        "completed_missions": 0,
+        "incomplete_missions_total": 449,
+        "route_inefficiency_pct": 0.0,
+        "total_real_distance_m": 0.0,
+        "total_ideal_distance_m": 0.0
+      },
+      "daidalus": {
+        "macproxy_count": 0,
+        "macproxy_active_pairs": 0,
+        "daa_alert_pairs": 0,
+        "total_scheduled_missions": 449,
+        "completed_missions": 0,
+        "incomplete_missions_total": 449,
+        "route_inefficiency_pct": 0.0,
+        "total_real_distance_m": 0.0,
+        "total_ideal_distance_m": 0.0
+      },
+      "delta_daidalus_minus_baseline": {
+        "macproxy_count": 0.0,
+        "route_inefficiency_pct": 0.0,
+        "completed_missions": 0.0,
+        "daa_alert_pairs": 0.0
+      }
+    },
+    {
+      "scenario": "3",
+      "python_reference": "testeprimordial3 \u2014 xTM tubes, no tactical DAA in generator",
+      "no_daidalus": {
+        "macproxy_count": 0,
+        "macproxy_active_pairs": 0,
+        "daa_alert_pairs": 0,
+        "total_scheduled_missions": 445,
+        "completed_missions": 0,
+        "incomplete_missions_total": 445,
+        "route_inefficiency_pct": 0.0,
+        "total_real_distance_m": 0.0,
+        "total_ideal_distance_m": 0.0
+      },
+      "daidalus": {
+        "macproxy_count": 0,
+        "macproxy_active_pairs": 0,
+        "daa_alert_pairs": 0,
+        "total_scheduled_missions": 445,
+        "completed_missions": 0,
+        "incomplete_missions_total": 445,
+        "route_inefficiency_pct": 0.0,
+        "total_real_distance_m": 0.0,
+        "total_ideal_distance_m": 0.0
+      },
+      "delta_daidalus_minus_baseline": {
+        "macproxy_count": 0.0,
+        "route_inefficiency_pct": 0.0,
+        "completed_missions": 0.0,
+        "daa_alert_pairs": 0.0
+      }
+    },
+    {
+      "scenario": "4a",
+      "python_reference": "testeprimordial4 \u2014 xTM + DAA (4A-style)",
+      "no_daidalus": {
+        "macproxy_count": 0,
+        "macproxy_active_pairs": 0,
+        "daa_alert_pairs": 0,
+        "total_scheduled_missions": 445,
+        "completed_missions": 0,
+        "incomplete_missions_total": 445,
+        "route_inefficiency_pct": 0.0,
+        "total_real_distance_m": 0.0,
+        "total_ideal_distance_m": 0.0
+      },
+      "daidalus": {
+        "macproxy_count": 0,
+        "macproxy_active_pairs": 0,
+        "daa_alert_pairs": 0,
+        "total_scheduled_missions": 445,
+        "completed_missions": 0,
+        "incomplete_missions_total": 445,
+        "route_inefficiency_pct": 0.0,
+        "total_real_distance_m": 0.0,
+        "total_ideal_distance_m": 0.0
+      },
+      "delta_daidalus_minus_baseline": {
+        "macproxy_count": 0.0,
+        "route_inefficiency_pct": 0.0,
+        "completed_missions": 0.0,
+        "daa_alert_pairs": 0.0
+      }
+    },
+    {
+      "scenario": "4b",
+      "python_reference": "testeprimordial4b \u2014 xTM + DAA + wind-style (4B)",
+      "no_daidalus": {
+        "macproxy_count": 0,
+        "macproxy_active_pairs": 0,
+        "daa_alert_pairs": 0,
+        "total_scheduled_missions": 445,
+        "completed_missions": 0,
+        "incomplete_missions_total": 445,
+        "route_inefficiency_pct": 0.0,
+        "total_real_distance_m": 0.0,
+        "total_ideal_distance_m": 0.0
+      },
+      "daidalus": {
+        "macproxy_count": 0,
+        "macproxy_active_pairs": 0,
+        "daa_alert_pairs": 0,
+        "total_scheduled_missions": 445,
+        "completed_missions": 0,
+        "incomplete_missions_total": 445,
+        "route_inefficiency_pct": 0.0,
+        "total_real_distance_m": 0.0,
+        "total_ideal_distance_m": 0.0
+      },
+      "delta_daidalus_minus_baseline": {
+        "macproxy_count": 0.0,
+        "route_inefficiency_pct": 0.0,
+        "completed_missions": 0.0,
+        "daa_alert_pairs": 0.0
+      }
+    }
+  ],
+  "by_scenario_keys": [
+    "1",
+    "2",
+    "3",
+    "4a",
+    "4b"
+  ],
+  "run_meta": {
+    "created_utc": "20260322_183237",
+    "duration_s": 45.0,
+    "num_drones": 12,
+    "seed": 42,
+    "physics_hz": 1.0,
+    "genome_path": "/home/suporte/Conceptio_Services/Rust_models/experiments/daidalus_ga/best_genome.json",
+    "scenarios": [
+      "1",
+      "2",
+      "3",
+      "4a",
+      "4b"
+    ],
+    "modes": [
+      "no_daidalus",
+      "daidalus"
+    ],
+    "workers": 6
+  },
+  "raw_results": [
+    {
+      "tag": "scen1_n12_s42_no_daidalus",
+      "scenario": "1",
+      "mode": "no_daidalus",
+      "rc": 0,
+      "error": null,
+      "metrics": {
+        "macproxy_count": 0,
+        "macproxy_active_pairs": 0,
+        "daa_alert_pairs": 0,
+        "total_scheduled_missions": 355,
+        "completed_missions": 0,
+        "incomplete_missions_total": 355,
+        "route_inefficiency_pct": 0.0,
+        "total_real_distance_m": 0.0,
+        "total_ideal_distance_m": 0.0
+      }
+    },
+    {
+      "tag": "scen2_n12_s42_no_daidalus",
+      "scenario": "2",
+      "mode": "no_daidalus",
+      "rc": 0,
+      "error": null,
+      "metrics": {
+        "macproxy_count": 0,
+        "macproxy_active_pairs": 0,
+        "daa_alert_pairs": 0,
+        "total_scheduled_missions": 449,
+        "completed_missions": 0,
+        "incomplete_missions_total": 449,
+        "route_inefficiency_pct": 0.0,
+        "total_real_distance_m": 0.0,
+        "total_ideal_distance_m": 0.0
+      }
+    },
+    {
+      "tag": "scen3_n12_s42_no_daidalus",
+      "scenario": "3",
+      "mode": "no_daidalus",
+      "rc": 0,
+      "error": null,
+      "metrics": {
+        "macproxy_count": 0,
+        "macproxy_active_pairs": 0,
+        "daa_alert_pairs": 0,
+        "total_scheduled_missions": 445,
+        "completed_missions": 0,
+        "incomplete_missions_total": 445,
+        "route_inefficiency_pct": 0.0,
+        "total_real_distance_m": 0.0,
+        "total_ideal_distance_m": 0.0
+      }
+    },
+    {
+      "tag": "scen1_n12_s42_daidalus",
+      "scenario": "1",
+      "mode": "daidalus",
+      "rc": 0,
+      "error": null,
+      "metrics": {
+        "macproxy_count": 0,
+        "macproxy_active_pairs": 0,
+        "daa_alert_pairs": 0,
+        "total_scheduled_missions": 355,
+        "completed_missions": 0,
+        "incomplete_missions_total": 355,
+        "route_inefficiency_pct": 0.0,
+        "total_real_distance_m": 0.0,
+        "total_ideal_distance_m": 0.0
+      }
+    },
+    {
+      "tag": "scen3_n12_s42_daidalus",
+      "scenario": "3",
+      "mode": "daidalus",
+      "rc": 0,
+      "error": null,
+      "metrics": {
+        "macproxy_count": 0,
+        "macproxy_active_pairs": 0,
+        "daa_alert_pairs": 0,
+        "total_scheduled_missions": 445,
+        "completed_missions": 0,
+        "incomplete_missions_total": 445,
+        "route_inefficiency_pct": 0.0,
+        "total_real_distance_m": 0.0,
+        "total_ideal_distance_m": 0.0
+      }
+    },
+    {
+      "tag": "scen2_n12_s42_daidalus",
+      "scenario": "2",
+      "mode": "daidalus",
+      "rc": 0,
+      "error": null,
+      "metrics": {
+        "macproxy_count": 0,
+        "macproxy_active_pairs": 0,
+        "daa_alert_pairs": 0,
+        "total_scheduled_missions": 449,
+        "completed_missions": 0,
+        "incomplete_missions_total": 449,
+        "route_inefficiency_pct": 0.0,
+        "total_real_distance_m": 0.0,
+        "total_ideal_distance_m": 0.0
+      }
+    },
+    {
+      "tag": "scen4a_n12_s42_no_daidalus",
+      "scenario": "4a",
+      "mode": "no_daidalus",
+      "rc": 0,
+      "error": null,
+      "metrics": {
+        "macproxy_count": 0,
+        "macproxy_active_pairs": 0,
+        "daa_alert_pairs": 0,
+        "total_scheduled_missions": 445,
+        "completed_missions": 0,
+        "incomplete_missions_total": 445,
+        "route_inefficiency_pct": 0.0,
+        "total_real_distance_m": 0.0,
+        "total_ideal_distance_m": 0.0
+      }
+    },
+    {
+      "tag": "scen4b_n12_s42_no_daidalus",
+      "scenario": "4b",
+      "mode": "no_daidalus",
+      "rc": 0,
+      "error": null,
+      "metrics": {
+        "macproxy_count": 0,
+        "macproxy_active_pairs": 0,
+        "daa_alert_pairs": 0,
+        "total_scheduled_missions": 445,
+        "completed_missions": 0,
+        "incomplete_missions_total": 445,
+        "route_inefficiency_pct": 0.0,
+        "total_real_distance_m": 0.0,
+        "total_ideal_distance_m": 0.0
+      }
+    },
+    {
+      "tag": "scen4b_n12_s42_daidalus",
+      "scenario": "4b",
+      "mode": "daidalus",
+      "rc": 0,
+      "error": null,
+      "metrics": {
+        "macproxy_count": 0,
+        "macproxy_active_pairs": 0,
+        "daa_alert_pairs": 0,
+        "total_scheduled_missions": 445,
+        "completed_missions": 0,
+        "incomplete_missions_total": 445,
+        "route_inefficiency_pct": 0.0,
+        "total_real_distance_m": 0.0,
+        "total_ideal_distance_m": 0.0
+      }
+    },
+    {
+      "tag": "scen4a_n12_s42_daidalus",
+      "scenario": "4a",
+      "mode": "daidalus",
+      "rc": 0,
+      "error": null,
+      "metrics": {
+        "macproxy_count": 0,
+        "macproxy_active_pairs": 0,
+        "daa_alert_pairs": 0,
+        "total_scheduled_missions": 445,
+        "completed_missions": 0,
+        "incomplete_missions_total": 445,
+        "route_inefficiency_pct": 0.0,
+        "total_real_distance_m": 0.0,
+        "total_ideal_distance_m": 0.0
+      }
+    }
+  ]
+}

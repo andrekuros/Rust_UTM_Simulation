@@ -1,0 +1,8 @@
+out=/home/suporte/Conceptio_Services/Rust_models/experiments/xtm_primordial_rust/results/run_20260322_183259
+duration_s=28800.0 num_drones=50 seed=42 physics_hz=1.0 workers=8
+  [scen3_n50_s42_no_daidalus] rc=0 macproxy=2 ok
+  [scen1_n50_s42_no_daidalus] rc=0 macproxy=29 ok
+  [scen4a_n50_s42_no_daidalus] rc=0 macproxy=6 ok
+  [scen2_n50_s42_no_daidalus] rc=0 macproxy=0 ok
+  [scen4b_n50_s42_no_daidalus] rc=0 macproxy=0 ok
+  [scen2_n50_s42_daidalus] rc=0 macproxy=87 ok

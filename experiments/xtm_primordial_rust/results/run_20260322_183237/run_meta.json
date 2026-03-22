@@ -1,0 +1,20 @@
+{
+  "created_utc": "20260322_183237",
+  "duration_s": 45.0,
+  "num_drones": 12,
+  "seed": 42,
+  "physics_hz": 1.0,
+  "genome_path": "/home/suporte/Conceptio_Services/Rust_models/experiments/daidalus_ga/best_genome.json",
+  "scenarios": [
+    "1",
+    "2",
+    "3",
+    "4a",
+    "4b"
+  ],
+  "modes": [
+    "no_daidalus",
+    "daidalus"
+  ],
+  "workers": 6
+}
