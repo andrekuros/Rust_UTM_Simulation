@@ -603,6 +603,7 @@ fn reactive_avoidance_system(
     reactive_cfg: Option<Res<ReactiveDronesConfig>>,
     active_collisions: Res<ActiveCollisions>,
     daidalus_tune: Res<DaidalusTuneConfig>,
+    safety: Res<SafetyConfig>,
     mut query: Query<(
         &crate::agents::Drone,
         &Transform,
@@ -672,6 +673,7 @@ fn reactive_avoidance_system(
     }
 
     let tune = *daidalus_tune;
+    let thresh = safety.collision_threshold;
     for (drone, transform, mut avoidance, plan) in query.iter_mut() {
         if avoidance.until_time > 0.0 && now < avoidance.until_time {
             continue;
@@ -686,7 +688,17 @@ fn reactive_avoidance_system(
             .filter(|a| {
                 let involved = a.drone_a == drone.id || a.drone_b == drone.id;
                 let ownship_ok = a.ownship_id.is_empty() || a.ownship_id == drone.id;
-                involved && ownship_ok && a.alert_level >= tune.min_alert_level
+                if !involved || !ownship_ok {
+                    return false;
+                }
+                if a.alert_level >= tune.min_alert_level {
+                    return true;
+                }
+                // `run_daidalus_evaluation` still emits a pair when dist < threshold even if C++
+                // returns alert_level==0 — those must steer or the craft "ignore" close traffic.
+                mode == crate::AvoidanceMode::Daidalus
+                    && a.alert_level == 0
+                    && a.distance < thresh
             })
             .max_by_key(|a| a.alert_level);
 

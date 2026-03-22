@@ -667,16 +667,16 @@
                 if (state.alerts && state.alerts.length > 0) {
                     bubble.visible = true;
                     // Find highest alert level
-                    let maxAlert = Math.max(...state.alerts.map(a => a.alert_level || 0));
+                    const maxAlert = Math.max(...state.alerts.map(a => a.alert_level || 0));
                     if (maxAlert >= 2) {
-                        bubble.material.color.setHex(0xff0000); // Red Warning
+                        bubble.material.color.setHex(0xff0000); // DAIDALUS warning / strong
                     } else if (maxAlert === 1) {
-                        bubble.material.color.setHex(0xffff00); // Yellow Corrective
+                        bubble.material.color.setHex(0xffff00); // Corrective
                     } else {
-                        // Fallback purely distance-based if DAIDALUS isn't reporting level
+                        // alert_level 0: often "inside threshold distance" but no band from C++ — not the same as level ≥2
                         let minDist = Math.min(...state.alerts.map(a => a.distance));
                         let factor = Math.min(minDist / 50, 1.0);
-                        bubble.material.color.setHSL(0.15 * factor, 1, 0.5);
+                        bubble.material.color.setHSL(0.08 + 0.12 * factor, 1, 0.5); // orange family, not red
                     }
 
                     // Look for resolution bands
