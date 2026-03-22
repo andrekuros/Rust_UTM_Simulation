@@ -1,0 +1,8 @@
+{
+  "case": "center_cross_and_headon",
+  "description": "One perpendicular through (0,0) plus a head-on pair on a parallel lane (z=260) \u2014 mixed geometry, still compact.",
+  "duration_s": 150.0,
+  "default_duration_s": 150.0,
+  "genome_source": "/home/suporte/Conceptio_Services/Rust_models/experiments/daidalus_ga/best_genome.json",
+  "returncode": 0
+}

@@ -1,0 +1,100 @@
+{
+  "run_id": "manual_cpp_meta_20260322",
+  "genome_source": "/home/suporte/Conceptio_Services/Rust_models/experiments/daidalus_ga/best_genome.json",
+  "log_interval_s": 1.0,
+  "physics_hz": 10.0,
+  "genome_cpp_distance_filter_m": 200.0,
+  "encounter_cpp_distance_filter_m": 200.0,
+  "random_cpp_mode": "zero",
+  "random_cpp_distance_filter_m": 0.0,
+  "encounter_duration_s": 120.0,
+  "random_duration_s": 600.0,
+  "num_drones": 50,
+  "scenario": "2",
+  "seeds": [
+    42,
+    43
+  ],
+  "rows": [
+    {
+      "kind": "encounter",
+      "name": "perpendicular",
+      "returncode": 0,
+      "daa_alert_pairs": 1,
+      "cpp_distance_filter_m": 200.0,
+      "telemetry_rows": 240,
+      "rows_with_ownship_alert": 162,
+      "alert_with_reactive": 156,
+      "alert_without_reactive": 6,
+      "fraction_alert_without_reactive": 0.037037037037037035,
+      "missing_file": false
+    },
+    {
+      "kind": "encounter",
+      "name": "head_on",
+      "returncode": 0,
+      "daa_alert_pairs": 1,
+      "cpp_distance_filter_m": 200.0,
+      "telemetry_rows": 240,
+      "rows_with_ownship_alert": 126,
+      "alert_with_reactive": 120,
+      "alert_without_reactive": 6,
+      "fraction_alert_without_reactive": 0.047619047619047616,
+      "missing_file": false
+    },
+    {
+      "kind": "encounter",
+      "name": "converging",
+      "returncode": 0,
+      "daa_alert_pairs": 1,
+      "cpp_distance_filter_m": 200.0,
+      "telemetry_rows": 240,
+      "rows_with_ownship_alert": 112,
+      "alert_with_reactive": 96,
+      "alert_without_reactive": 16,
+      "fraction_alert_without_reactive": 0.14285714285714285,
+      "missing_file": false
+    },
+    {
+      "kind": "encounter",
+      "name": "other_acute_crossing",
+      "returncode": 0,
+      "daa_alert_pairs": 1,
+      "cpp_distance_filter_m": 200.0,
+      "telemetry_rows": 240,
+      "rows_with_ownship_alert": 100,
+      "alert_with_reactive": 72,
+      "alert_without_reactive": 28,
+      "fraction_alert_without_reactive": 0.28,
+      "missing_file": false
+    },
+    {
+      "kind": "random",
+      "seed": 42,
+      "scenario": "2",
+      "returncode": 0,
+      "daa_alert_pairs": 17,
+      "cpp_distance_filter_m": 0.0,
+      "telemetry_rows": 22597,
+      "rows_with_ownship_alert": 1040,
+      "alert_with_reactive": 969,
+      "alert_without_reactive": 71,
+      "fraction_alert_without_reactive": 0.06826923076923076,
+      "missing_file": false
+    },
+    {
+      "kind": "random",
+      "seed": 43,
+      "scenario": "2",
+      "returncode": 0,
+      "daa_alert_pairs": 13,
+      "cpp_distance_filter_m": 0.0,
+      "telemetry_rows": 22374,
+      "rows_with_ownship_alert": 526,
+      "alert_with_reactive": 498,
+      "alert_without_reactive": 28,
+      "fraction_alert_without_reactive": 0.053231939163498096,
+      "missing_file": false
+    }
+  ]
+}

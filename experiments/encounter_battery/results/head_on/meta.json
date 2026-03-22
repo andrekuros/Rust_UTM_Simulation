@@ -1,0 +1,8 @@
+{
+  "case": "head_on",
+  "description": "Same line, opposite directions (meet near x=0, z=0).",
+  "duration_s": 150.0,
+  "default_duration_s": 150.0,
+  "genome_source": "/home/suporte/Conceptio_Services/Rust_models/experiments/daidalus_ga/best_genome.json",
+  "returncode": 0
+}

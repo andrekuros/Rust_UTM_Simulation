@@ -1,0 +1,158 @@
+{
+  "created_utc": "20260322_170154",
+  "trials": 2,
+  "workers": 16,
+  "suite": "core",
+  "aggregate": "mean",
+  "seed": 7,
+  "best_J": 40.34325013100643,
+  "best_genome": {
+    "evasion_offset_m": 83.31934002286451,
+    "evasion_duration_s": 4.632854403435394,
+    "heading_blend": 0.029555253039494578,
+    "track_mix": 0.5589083247737717,
+    "cpp_distance_filter_m": 378.979880282995,
+    "cpp_lookahead_s": 200.26899724756902,
+    "cpp_horizontal_nmac_m": 52.894798789926476,
+    "daa_interval_s": 0.35825858458824567,
+    "min_alert_level": 2.0,
+    "max_cross_track_m": 246.60579935332765,
+    "final_approach_no_reactive_radius_m": 195.25102111858402
+  },
+  "rows": [
+    {
+      "trial": 0,
+      "J": 55.05913252630316,
+      "genome": {
+        "evasion_offset_m": 98.28989766996924,
+        "evasion_duration_s": 1.6313688044337644,
+        "heading_blend": 0.3254672365199269,
+        "track_mix": 0.11519265800078848,
+        "cpp_distance_filter_m": 214.35280172267568,
+        "cpp_lookahead_s": 128.7360075663981,
+        "cpp_horizontal_nmac_m": 18.769930110355943,
+        "daa_interval_s": 1.1380125330814854,
+        "min_alert_level": 0.0,
+        "max_cross_track_m": 116.0978381494521,
+        "final_approach_no_reactive_radius_m": 83.6344302741519
+      },
+      "per_scenario": [
+        {
+          "name": "perpendicular",
+          "j": 28.02,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 1,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "head_on",
+          "j": 37.02,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 4,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "sjc2_perpendicular",
+          "j": 37.02,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 4,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "sjc_perpendicular_2",
+          "j": 31.02,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 2,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "center_busy_octet",
+          "j": 130.46,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 35,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "sjc_gen_s2_n50_seed42",
+          "j": 66.81479515781893,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 13,
+          "route_inefficiency_pct": 2.7335485453528
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "J": 40.34325013100643,
+      "genome": {
+        "evasion_offset_m": 83.31934002286451,
+        "evasion_duration_s": 4.632854403435394,
+        "heading_blend": 0.029555253039494578,
+        "track_mix": 0.5589083247737717,
+        "cpp_distance_filter_m": 378.979880282995,
+        "cpp_lookahead_s": 200.26899724756902,
+        "cpp_horizontal_nmac_m": 52.894798789926476,
+        "daa_interval_s": 0.35825858458824567,
+        "min_alert_level": 2.0,
+        "max_cross_track_m": 246.60579935332765,
+        "final_approach_no_reactive_radius_m": 195.25102111858402
+      },
+      "per_scenario": [
+        {
+          "name": "perpendicular",
+          "j": 25.02,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 0,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "head_on",
+          "j": 28.02,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 1,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "sjc2_perpendicular",
+          "j": 25.02,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 0,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "sjc_perpendicular_2",
+          "j": 21.022780864636104,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 0,
+          "route_inefficiency_pct": 21.002780864636104
+        },
+        {
+          "name": "center_busy_octet",
+          "j": 70.56,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 15,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "sjc_gen_s2_n50_seed42",
+          "j": 72.41671992140246,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 15,
+          "route_inefficiency_pct": 2.476123715440403
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,560 @@
+{
+  "created_utc": "20260322_170400",
+  "trials": 8,
+  "workers": 16,
+  "suite": "core",
+  "aggregate": "mean",
+  "seed": 42,
+  "best_J": 26.719433014674227,
+  "best_genome": {
+    "evasion_offset_m": 157.9789597530784,
+    "evasion_duration_s": 3.467239257954982,
+    "heading_blend": 0.45727379487027175,
+    "track_mix": 0.4629666673286589,
+    "cpp_distance_filter_m": 105.95206659922098,
+    "cpp_lookahead_s": 96.58942707737553,
+    "cpp_horizontal_nmac_m": 51.488928720604804,
+    "daa_interval_s": 0.7097978149151367,
+    "min_alert_level": 2.0,
+    "max_cross_track_m": 259.94220746372343,
+    "final_approach_no_reactive_radius_m": 116.70658498913124
+  },
+  "rows": [
+    {
+      "trial": 0,
+      "J": 57.56835484367349,
+      "genome": {
+        "evasion_offset_m": 155.09682372241906,
+        "evasion_duration_s": 0.687580664170002,
+        "heading_blend": 0.13751465918455963,
+        "track_mix": 0.25088966433394044,
+        "cpp_distance_filter_m": 294.58848566560494,
+        "cpp_lookahead_s": 212.70886160418604,
+        "cpp_horizontal_nmac_m": 72.99167190081495,
+        "daa_interval_s": 0.4021429571014783,
+        "min_alert_level": 1.0,
+        "max_cross_track_m": 93.3487253823491,
+        "final_approach_no_reactive_radius_m": 18.739047972318488
+      },
+      "per_scenario": [
+        {
+          "name": "perpendicular",
+          "j": 46.02,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 7,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "head_on",
+          "j": 28.02,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 1,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "sjc2_perpendicular",
+          "j": 37.02,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 4,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "sjc_perpendicular_2",
+          "j": 61.37544651415613,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 3,
+          "route_inefficiency_pct": 39.85544651415613
+        },
+        {
+          "name": "center_busy_octet",
+          "j": 85.4,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 20,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "sjc_gen_s2_n50_seed42",
+          "j": 87.57468254788478,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 20,
+          "route_inefficiency_pct": 2.4734359354186535
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "J": 33.009818560573194,
+      "genome": {
+        "evasion_offset_m": 81.87896081033313,
+        "evasion_duration_s": 5.015140467874852,
+        "heading_blend": 0.2806225314693065,
+        "track_mix": 0.6944176516301631,
+        "cpp_distance_filter_m": 280.52998943609435,
+        "cpp_lookahead_s": 143.27035165964787,
+        "cpp_horizontal_nmac_m": 44.198588008450486,
+        "daa_interval_s": 0.7368337394036597,
+        "min_alert_level": 0.0,
+        "max_cross_track_m": 398.69909419450227,
+        "final_approach_no_reactive_radius_m": 31.931863275378024
+      },
+      "per_scenario": [
+        {
+          "name": "perpendicular",
+          "j": 25.02,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 0,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "head_on",
+          "j": 25.02,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 0,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "sjc2_perpendicular",
+          "j": 25.02,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 0,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "sjc_perpendicular_2",
+          "j": 24.575137587918174,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 0,
+          "route_inefficiency_pct": 24.555137587918175
+        },
+        {
+          "name": "center_busy_octet",
+          "j": 49.26,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 8,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "sjc_gen_s2_n50_seed42",
+          "j": 49.16377377552098,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 7,
+          "route_inefficiency_pct": 3.270277840561628
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "J": 34.33337002661634,
+      "genome": {
+        "evasion_offset_m": 116.07059166763045,
+        "evasion_duration_s": 2.584035062537314,
+        "heading_blend": 0.1076568810537944,
+        "track_mix": 0.7371447161058715,
+        "cpp_distance_filter_m": 40.88411060793948,
+        "cpp_lookahead_s": 132.58037117208107,
+        "cpp_horizontal_nmac_m": 38.333659731500845,
+        "daa_interval_s": 0.8519225143381994,
+        "min_alert_level": 1.0,
+        "max_cross_track_m": 418.9938747752397,
+        "final_approach_no_reactive_radius_m": 145.9463573387636
+      },
+      "per_scenario": [
+        {
+          "name": "perpendicular",
+          "j": 25.02,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 0,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "head_on",
+          "j": 28.02,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 1,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "sjc2_perpendicular",
+          "j": 25.02,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 0,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "sjc_perpendicular_2",
+          "j": 8.98845821208424,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 0,
+          "route_inefficiency_pct": 8.96845821208424
+        },
+        {
+          "name": "center_busy_octet",
+          "j": 91.38,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 22,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "sjc_gen_s2_n50_seed42",
+          "j": 27.571761947613815,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 0,
+          "route_inefficiency_pct": 2.5976156061504008
+        }
+      ]
+    },
+    {
+      "trial": 3,
+      "J": 35.07019886582936,
+      "genome": {
+        "evasion_offset_m": 136.52105646184611,
+        "evasion_duration_s": 7.79836822984528,
+        "heading_blend": 0.18926718860417674,
+        "track_mix": 0.5468365681459043,
+        "cpp_distance_filter_m": 331.76186570119796,
+        "cpp_lookahead_s": 197.00033313834643,
+        "cpp_horizontal_nmac_m": 71.01094852020051,
+        "daa_interval_s": 1.2603662541993335,
+        "min_alert_level": 2.0,
+        "max_cross_track_m": 109.21316250597118,
+        "final_approach_no_reactive_radius_m": 132.25266371354203
+      },
+      "per_scenario": [
+        {
+          "name": "perpendicular",
+          "j": 28.02,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 1,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "head_on",
+          "j": 28.02,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 1,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "sjc2_perpendicular",
+          "j": 34.02,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 3,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "sjc_perpendicular_2",
+          "j": 28.02,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 1,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "center_busy_octet",
+          "j": 46.52,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 7,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "sjc_gen_s2_n50_seed42",
+          "j": 45.82119319497615,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 6,
+          "route_inefficiency_pct": 2.82059698901409
+        }
+      ]
+    },
+    {
+      "trial": 4,
+      "J": 32.800579985402656,
+      "genome": {
+        "evasion_offset_m": 179.15230134196455,
+        "evasion_duration_s": 7.889161404955683,
+        "heading_blend": 0.42765886050757346,
+        "track_mix": 0.8298353000797427,
+        "cpp_distance_filter_m": 152.05049001566647,
+        "cpp_lookahead_s": 152.42078163947758,
+        "cpp_horizontal_nmac_m": 69.21717773164877,
+        "daa_interval_s": 0.5346446700231484,
+        "min_alert_level": 1.0,
+        "max_cross_track_m": 167.99295292402485,
+        "final_approach_no_reactive_radius_m": 53.39556440982267
+      },
+      "per_scenario": [
+        {
+          "name": "perpendicular",
+          "j": 25.02,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 0,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "head_on",
+          "j": 25.02,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 0,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "sjc2_perpendicular",
+          "j": 25.02,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 0,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "sjc_perpendicular_2",
+          "j": 38.19057573133045,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 0,
+          "route_inefficiency_pct": 38.170575731330445
+        },
+        {
+          "name": "center_busy_octet",
+          "j": 34.4,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 3,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "sjc_gen_s2_n50_seed42",
+          "j": 49.15290418108548,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 7,
+          "route_inefficiency_pct": 3.1458581106247787
+        }
+      ]
+    },
+    {
+      "trial": 5,
+      "J": 28.633436323740227,
+      "genome": {
+        "evasion_offset_m": 208.5978257882489,
+        "evasion_duration_s": 5.360265389349451,
+        "heading_blend": 0.3045655028334941,
+        "track_mix": 0.20402478337828728,
+        "cpp_distance_filter_m": 291.6507191801397,
+        "cpp_lookahead_s": 74.11867331572066,
+        "cpp_horizontal_nmac_m": 39.66460371424711,
+        "daa_interval_s": 1.9816658636140416,
+        "min_alert_level": 2.0,
+        "max_cross_track_m": 369.02802254199156,
+        "final_approach_no_reactive_radius_m": 43.92303479405379
+      },
+      "per_scenario": [
+        {
+          "name": "perpendicular",
+          "j": 25.02,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 0,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "head_on",
+          "j": 25.02,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 0,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "sjc2_perpendicular",
+          "j": 25.02,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 0,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "sjc_perpendicular_2",
+          "j": 27.759899794260658,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 0,
+          "route_inefficiency_pct": 27.73989979426066
+        },
+        {
+          "name": "center_busy_octet",
+          "j": 40.44,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 5,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "sjc_gen_s2_n50_seed42",
+          "j": 28.540718148180698,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 0,
+          "route_inefficiency_pct": 3.5936720777199933
+        }
+      ]
+    },
+    {
+      "trial": 6,
+      "J": 36.399133030238694,
+      "genome": {
+        "evasion_offset_m": 98.37089219475794,
+        "evasion_duration_s": 6.262351831942791,
+        "heading_blend": 0.02796897377464197,
+        "track_mix": 0.7896223346061275,
+        "cpp_distance_filter_m": 322.0183203084857,
+        "cpp_lookahead_s": 138.31449249602883,
+        "cpp_horizontal_nmac_m": 19.30225933875057,
+        "daa_interval_s": 1.8479882173247038,
+        "min_alert_level": 2.0,
+        "max_cross_track_m": 448.07440311852093,
+        "final_approach_no_reactive_radius_m": 62.935576159695586
+      },
+      "per_scenario": [
+        {
+          "name": "perpendicular",
+          "j": 25.02,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 0,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "head_on",
+          "j": 25.02,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 0,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "sjc2_perpendicular",
+          "j": 25.02,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 0,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "sjc_perpendicular_2",
+          "j": 36.91903211924765,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 0,
+          "route_inefficiency_pct": 36.89903211924765
+        },
+        {
+          "name": "center_busy_octet",
+          "j": 70.54,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 15,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "sjc_gen_s2_n50_seed42",
+          "j": 35.875766062184496,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 2,
+          "route_inefficiency_pct": 4.908719991723789
+        }
+      ]
+    },
+    {
+      "trial": 7,
+      "J": 26.719433014674227,
+      "genome": {
+        "evasion_offset_m": 157.9789597530784,
+        "evasion_duration_s": 3.467239257954982,
+        "heading_blend": 0.45727379487027175,
+        "track_mix": 0.4629666673286589,
+        "cpp_distance_filter_m": 105.95206659922098,
+        "cpp_lookahead_s": 96.58942707737553,
+        "cpp_horizontal_nmac_m": 51.488928720604804,
+        "daa_interval_s": 0.7097978149151367,
+        "min_alert_level": 2.0,
+        "max_cross_track_m": 259.94220746372343,
+        "final_approach_no_reactive_radius_m": 116.70658498913124
+      },
+      "per_scenario": [
+        {
+          "name": "perpendicular",
+          "j": 25.02,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 0,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "head_on",
+          "j": 25.02,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 0,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "sjc2_perpendicular",
+          "j": 25.02,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 0,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "sjc_perpendicular_2",
+          "j": 12.636390658749473,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 0,
+          "route_inefficiency_pct": 12.616390658749474
+        },
+        {
+          "name": "center_busy_octet",
+          "j": 40.46,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 5,
+          "route_inefficiency_pct": 0.0
+        },
+        {
+          "name": "sjc_gen_s2_n50_seed42",
+          "j": 32.16020742929589,
+          "rc": 0,
+          "error": null,
+          "macproxy_count": 0,
+          "route_inefficiency_pct": 7.27316135883518
+        }
+      ]
+    }
+  ]
+}

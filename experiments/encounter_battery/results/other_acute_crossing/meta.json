@@ -1,0 +1,8 @@
+{
+  "case": "other_acute_crossing",
+  "description": "60\u00b0 crossing in XZ (same altitude); closes faster than shallow diagonal.",
+  "duration_s": 150.0,
+  "default_duration_s": 150.0,
+  "genome_source": "/home/suporte/Conceptio_Services/Rust_models/experiments/daidalus_ga/best_genome.json",
+  "returncode": 0
+}

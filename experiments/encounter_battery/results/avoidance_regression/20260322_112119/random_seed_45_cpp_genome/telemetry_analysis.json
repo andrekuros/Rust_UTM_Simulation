@@ -1,0 +1,15 @@
+{
+  "telemetry_rows": 3485,
+  "rows_with_ownship_alert": 42,
+  "alert_with_reactive": 40,
+  "alert_without_reactive": 2,
+  "fraction_alert_without_reactive": 0.047619047619047616,
+  "by_flight_state": {
+    "cruise": {
+      "alert": 42,
+      "alert_reactive": 40,
+      "alert_no_reactive": 2
+    }
+  },
+  "missing_file": false
+}

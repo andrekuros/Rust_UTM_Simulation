@@ -1,0 +1,284 @@
+{
+  "created_utc": "20260322_180945",
+  "best_J": 21.47813623876042,
+  "best_genome": {
+    "evasion_offset_m": 169.04863788938653,
+    "evasion_duration_s": 3.9268197387606762,
+    "heading_blend": 0.3657597138442277,
+    "track_mix": 0.4382410466854978,
+    "cpp_distance_filter_m": 45.50758397943468,
+    "cpp_lookahead_s": 129.570639051947,
+    "cpp_horizontal_nmac_m": 29.025397559593664,
+    "daa_interval_s": 0.4915892917321246,
+    "min_alert_level": 2.0,
+    "max_cross_track_m": 438.74346715768974,
+    "final_approach_no_reactive_radius_m": 178.91405284545448
+  },
+  "config": {
+    "base_genome": "/home/suporte/Conceptio_Services/Rust_models/experiments/daidalus_ga/best_genome.json",
+    "population": 50,
+    "generations": 50,
+    "mutation_sigma": 0.12,
+    "tournament": 3,
+    "seed": 42,
+    "suite": "fast",
+    "aggregate": "mean",
+    "pop_parallel": 16,
+    "scenario_workers": 8,
+    "checkpoint": "experiments/daidalus_ga/ga_fast_checkpoint.json",
+    "fresh": true
+  },
+  "history": [
+    {
+      "generation": 0,
+      "best_J": 24.435278131749897,
+      "mean_J": 35.81598292263666
+    },
+    {
+      "generation": 1,
+      "best_J": 24.40658251672321,
+      "mean_J": 31.731064361859694
+    },
+    {
+      "generation": 2,
+      "best_J": 23.797467186556922,
+      "mean_J": 31.114669589970376
+    },
+    {
+      "generation": 3,
+      "best_J": 22.795580132457946,
+      "mean_J": 27.120701717891162
+    },
+    {
+      "generation": 4,
+      "best_J": 23.635382678084902,
+      "mean_J": 27.36130182356807
+    },
+    {
+      "generation": 5,
+      "best_J": 22.80195676451259,
+      "mean_J": 26.639208837723462
+    },
+    {
+      "generation": 6,
+      "best_J": 22.80195676451259,
+      "mean_J": 27.08915057726966
+    },
+    {
+      "generation": 7,
+      "best_J": 22.6770919541253,
+      "mean_J": 26.29221132588386
+    },
+    {
+      "generation": 8,
+      "best_J": 22.933104978508418,
+      "mean_J": 25.730579017815067
+    },
+    {
+      "generation": 9,
+      "best_J": 22.68109195280075,
+      "mean_J": 25.728516704378663
+    },
+    {
+      "generation": 10,
+      "best_J": 22.633295114305287,
+      "mean_J": 26.16789735572604
+    },
+    {
+      "generation": 11,
+      "best_J": 22.031783972660698,
+      "mean_J": 26.000035584618246
+    },
+    {
+      "generation": 12,
+      "best_J": 22.023737475077315,
+      "mean_J": 25.08405416647221
+    },
+    {
+      "generation": 13,
+      "best_J": 22.091185072872374,
+      "mean_J": 24.86736994051668
+    },
+    {
+      "generation": 14,
+      "best_J": 22.091185072872374,
+      "mean_J": 24.62460618863265
+    },
+    {
+      "generation": 15,
+      "best_J": 22.091185072872374,
+      "mean_J": 24.827595837018222
+    },
+    {
+      "generation": 16,
+      "best_J": 21.816671530538134,
+      "mean_J": 24.85202375670804
+    },
+    {
+      "generation": 17,
+      "best_J": 21.816671530538134,
+      "mean_J": 26.826341612444985
+    },
+    {
+      "generation": 18,
+      "best_J": 21.6463056807518,
+      "mean_J": 25.60590614865886
+    },
+    {
+      "generation": 19,
+      "best_J": 21.6463056807518,
+      "mean_J": 24.39127090355979
+    },
+    {
+      "generation": 20,
+      "best_J": 21.69976113949882,
+      "mean_J": 24.77255084649616
+    },
+    {
+      "generation": 21,
+      "best_J": 21.70776113949882,
+      "mean_J": 25.522132131462094
+    },
+    {
+      "generation": 22,
+      "best_J": 21.52959038347668,
+      "mean_J": 26.203723716613464
+    },
+    {
+      "generation": 23,
+      "best_J": 21.546590384483338,
+      "mean_J": 23.770876688367004
+    },
+    {
+      "generation": 24,
+      "best_J": 21.546590384483338,
+      "mean_J": 24.629397193845637
+    },
+    {
+      "generation": 25,
+      "best_J": 21.546590384483338,
+      "mean_J": 25.81247679651207
+    },
+    {
+      "generation": 26,
+      "best_J": 21.749173792176776,
+      "mean_J": 24.409174270405238
+    },
+    {
+      "generation": 27,
+      "best_J": 21.749173792176776,
+      "mean_J": 24.85489491159651
+    },
+    {
+      "generation": 28,
+      "best_J": 21.586750854041842,
+      "mean_J": 24.84927472495662
+    },
+    {
+      "generation": 29,
+      "best_J": 21.813105084816616,
+      "mean_J": 24.67581176104547
+    },
+    {
+      "generation": 30,
+      "best_J": 21.813105084816616,
+      "mean_J": 25.81223232440154
+    },
+    {
+      "generation": 31,
+      "best_J": 21.74291604672538,
+      "mean_J": 24.220109350035987
+    },
+    {
+      "generation": 32,
+      "best_J": 21.73573500725958,
+      "mean_J": 24.60393024838819
+    },
+    {
+      "generation": 33,
+      "best_J": 21.689249017132653,
+      "mean_J": 25.50036706460422
+    },
+    {
+      "generation": 34,
+      "best_J": 21.82628023672104,
+      "mean_J": 23.986268899558922
+    },
+    {
+      "generation": 35,
+      "best_J": 21.635163764132393,
+      "mean_J": 24.23051645224625
+    },
+    {
+      "generation": 36,
+      "best_J": 21.63338419013553,
+      "mean_J": 27.08965263267517
+    },
+    {
+      "generation": 37,
+      "best_J": 21.47813623876042,
+      "mean_J": 25.845588202038865
+    },
+    {
+      "generation": 38,
+      "best_J": 21.692375485234788,
+      "mean_J": 26.898363289375844
+    },
+    {
+      "generation": 39,
+      "best_J": 21.670875483724807,
+      "mean_J": 25.322773108058506
+    },
+    {
+      "generation": 40,
+      "best_J": 21.65184536955092,
+      "mean_J": 28.0642414742332
+    },
+    {
+      "generation": 41,
+      "best_J": 21.634998264392216,
+      "mean_J": 24.6146354428249
+    },
+    {
+      "generation": 42,
+      "best_J": 21.680621185567645,
+      "mean_J": 25.891577877253965
+    },
+    {
+      "generation": 43,
+      "best_J": 21.67068775177002,
+      "mean_J": 25.283601780034175
+    },
+    {
+      "generation": 44,
+      "best_J": 21.67068775177002,
+      "mean_J": 26.274493987455376
+    },
+    {
+      "generation": 45,
+      "best_J": 21.67068775177002,
+      "mean_J": 26.271782188775816
+    },
+    {
+      "generation": 46,
+      "best_J": 21.525502991331948,
+      "mean_J": 24.732995778045122
+    },
+    {
+      "generation": 47,
+      "best_J": 21.525502991331948,
+      "mean_J": 24.583145745033693
+    },
+    {
+      "generation": 48,
+      "best_J": 21.58506891012192,
+      "mean_J": 26.101077926602365
+    },
+    {
+      "generation": 49,
+      "best_J": 21.58506891012192,
+      "mean_J": 25.233909528436655
+    }
+  ],
+  "checkpoint": "experiments/daidalus_ga/ga_fast_checkpoint.json"
+}

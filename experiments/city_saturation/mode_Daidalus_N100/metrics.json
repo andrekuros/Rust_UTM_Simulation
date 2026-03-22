@@ -1,0 +1,12 @@
+{
+    "num_drones_simulated": 100,
+    "total_unique_collision_pairs": 12,
+    "total_distance_m": 3443805.8555758023,
+    "average_flight_time_s": 3804.19,
+    "frame_count": 273410,
+    "mode": "Daidalus",
+    "num_drones": 100,
+    "sim_duration_s": 10800.0,
+    "scenario_generation_time_s": 0.00486445426940918,
+    "simulation_wall_time_s": 1269.8429143428802
+}

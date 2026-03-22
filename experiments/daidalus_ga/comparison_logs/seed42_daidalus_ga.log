@@ -1,0 +1,7 @@
+Starting simulation: duration 1200s, collision threshold 20m, scenario config/scenario_dynamic.json, avoidance_mode Daidalus, mqtt_enabled false, log_level "full", physics_hz 10
+Route metrics: ideal_mode=Chord, timing=MissionComplete
+DAA evaluation interval: 1s
+Physics tick rate set to 10 Hz (dt = 0.100s)
+Scenario loaded: 0 obstacles, 1845 drones (scheduled), 10 departure/landing zones
+Metrics: MACproxy=12, DAA_pairs=30, completed=63
+Telemetry: 40453 entries to simulation_telemetry.ndjson

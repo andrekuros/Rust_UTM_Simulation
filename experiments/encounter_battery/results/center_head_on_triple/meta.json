@@ -1,0 +1,8 @@
+{
+  "case": "center_head_on_triple",
+  "description": "Three head-on pairs on parallel X-lanes (z=-300,0,300), \u00b1450 m legs \u2014 hub-like en-route density, no dep/land.",
+  "duration_s": 150.0,
+  "default_duration_s": 150.0,
+  "genome_source": "/home/suporte/Conceptio_Services/Rust_models/experiments/daidalus_ga/best_genome.json",
+  "returncode": 0
+}

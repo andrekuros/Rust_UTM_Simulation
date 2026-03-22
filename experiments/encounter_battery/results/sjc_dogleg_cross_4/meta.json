@@ -1,0 +1,8 @@
+{
+  "case": "sjc_dogleg_cross_4",
+  "description": "Four SJC missions with two cruise waypoints each + staggered departures (dense en-route like random traffic).",
+  "duration_s": 400.0,
+  "default_duration_s": 150.0,
+  "genome_source": "/home/suporte/Conceptio_Services/Rust_models/experiments/daidalus_ga/best_genome.json",
+  "returncode": 0
+}

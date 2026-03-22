@@ -1,0 +1,25 @@
+{
+  "seed": 42,
+  "duration_s": 1200.0,
+  "scenario": "2",
+  "num_drones": 50,
+  "log_level": "full",
+  "log_interval_s_daidalus": 1.0,
+  "log_interval_s_python2": 10.0,
+  "physics_hz": 10.0,
+  "base_sim_config": "/home/suporte/Conceptio_Services/Rust_models/config/sim_config.json",
+  "outputs": {
+    "daidalus_ga": {
+      "log": "/home/suporte/Conceptio_Services/Rust_models/experiments/daidalus_ga/comparison_logs/seed42_daidalus_ga.log",
+      "sim_metrics": "/home/suporte/Conceptio_Services/Rust_models/experiments/daidalus_ga/comparison_logs/seed42_daidalus_ga_sim_metrics.json",
+      "telemetry_ndjson": "/home/suporte/Conceptio_Services/Rust_models/experiments/daidalus_ga/comparison_logs/seed42_daidalus_ga_telemetry.ndjson",
+      "rc": 0
+    },
+    "python2": {
+      "log": "/home/suporte/Conceptio_Services/Rust_models/experiments/daidalus_ga/comparison_logs/seed42_python2.log",
+      "sim_metrics": "/home/suporte/Conceptio_Services/Rust_models/experiments/daidalus_ga/comparison_logs/seed42_python2_sim_metrics.json",
+      "telemetry_ndjson": "/home/suporte/Conceptio_Services/Rust_models/experiments/daidalus_ga/comparison_logs/seed42_python2_telemetry.ndjson",
+      "rc": 0
+    }
+  }
+}

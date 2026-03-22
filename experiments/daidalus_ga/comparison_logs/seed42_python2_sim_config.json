@@ -1,0 +1,130 @@
+{
+  "simulation": {
+    "duration": 1200.0,
+    "collision_threshold": 20.0,
+    "show_progress_bar": false,
+    "reactive_drones": false,
+    "scenario_file": "config/scenario_dynamic.json",
+    "avoidance_mode": "Python2",
+    "enable_mqtt": false,
+    "landing_collision_ignore_radius_m": 50.0,
+    "landing_collision_ignore_height_max_m": 350.0,
+    "route_ideal_distance_mode": "chord",
+    "route_metrics_timing": "mission_complete",
+    "physics_hz": 10.0,
+    "log_level": "full",
+    "log_interval_s": 10.0
+  },
+  "departure_landing_zones": [
+    {
+      "name": "dl_0",
+      "min": [
+        -2300.0,
+        -2300.0
+      ],
+      "max": [
+        -2100.0,
+        -2100.0
+      ]
+    },
+    {
+      "name": "dl_1",
+      "min": [
+        2100.0,
+        -2300.0
+      ],
+      "max": [
+        2300.0,
+        -2100.0
+      ]
+    },
+    {
+      "name": "dl_2",
+      "min": [
+        -2300.0,
+        2100.0
+      ],
+      "max": [
+        -2100.0,
+        2300.0
+      ]
+    },
+    {
+      "name": "dl_3",
+      "min": [
+        2100.0,
+        2100.0
+      ],
+      "max": [
+        2300.0,
+        2300.0
+      ]
+    },
+    {
+      "name": "dl_4",
+      "min": [
+        -200.0,
+        -2300.0
+      ],
+      "max": [
+        200.0,
+        -2100.0
+      ]
+    },
+    {
+      "name": "dl_5",
+      "min": [
+        -200.0,
+        2100.0
+      ],
+      "max": [
+        200.0,
+        2300.0
+      ]
+    },
+    {
+      "name": "dl_6",
+      "min": [
+        2300.0,
+        -200.0
+      ],
+      "max": [
+        2500.0,
+        200.0
+      ]
+    },
+    {
+      "name": "dl_7",
+      "min": [
+        -2500.0,
+        -200.0
+      ],
+      "max": [
+        -2300.0,
+        200.0
+      ]
+    },
+    {
+      "name": "dl_8",
+      "min": [
+        1700.0,
+        -700.0
+      ],
+      "max": [
+        1900.0,
+        -300.0
+      ]
+    },
+    {
+      "name": "dl_9",
+      "min": [
+        -1900.0,
+        300.0
+      ],
+      "max": [
+        -1700.0,
+        700.0
+      ]
+    }
+  ]
+}

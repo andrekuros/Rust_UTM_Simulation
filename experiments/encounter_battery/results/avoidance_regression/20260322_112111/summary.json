@@ -1,0 +1,22 @@
+{
+  "run_id": "20260322_112111",
+  "encounter_duration_s": null,
+  "random_duration_s": 200.0,
+  "random_cpp_mode": "genome",
+  "rows": [
+    {
+      "kind": "random",
+      "seed": 42,
+      "scenario": "2",
+      "returncode": 0,
+      "daa_alert_pairs": 3,
+      "cpp_distance_filter_m": 200.0,
+      "telemetry_rows": 3600,
+      "rows_with_ownship_alert": 36,
+      "alert_with_reactive": 30,
+      "alert_without_reactive": 6,
+      "fraction_alert_without_reactive": 0.16666666666666666,
+      "missing_file": false
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+    "num_drones_simulated": 800,
+    "total_unique_collision_pairs": 1,
+    "total_distance_m": 3138891.120889923,
+    "average_flight_time_s": 5292.702694235589,
+    "frame_count": 78753,
+    "mode": "None",
+    "num_drones": 800,
+    "sim_duration_s": 10800.0,
+    "scenario_generation_time_s": 0.018757104873657227,
+    "simulation_wall_time_s": 2329.939117908478
+}

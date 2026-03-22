@@ -1,0 +1,8 @@
+{
+  "case": "sjc2_head_on",
+  "description": "Same geometry as head_on; PERF_SJC.",
+  "duration_s": 150.0,
+  "default_duration_s": 150.0,
+  "genome_source": "/home/suporte/Conceptio_Services/Rust_models/experiments/daidalus_ga/best_genome.json",
+  "returncode": 0
+}

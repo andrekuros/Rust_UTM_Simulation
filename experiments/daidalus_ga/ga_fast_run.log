@@ -1,0 +1,53 @@
+GA pop=50 gen=50 suite=fast n_scen=5 pop_parallel=16 scenario_workers=5
+  gen 1/50  best J=24.4353  (overall best)
+  gen 2/50  best J=24.4066  (overall best)
+  gen 3/50  best J=23.7975  (overall best)
+  gen 4/50  best J=22.7956  (overall best)
+  gen 5/50  best J=23.6354  overall=22.7956
+  gen 6/50  best J=22.802  overall=22.7956
+  gen 7/50  best J=22.802  overall=22.7956
+  gen 8/50  best J=22.6771  (overall best)
+  gen 9/50  best J=22.9331  overall=22.6771
+  gen 10/50  best J=22.6811  overall=22.6771
+  gen 11/50  best J=22.6333  (overall best)
+  gen 12/50  best J=22.0318  (overall best)
+  gen 13/50  best J=22.0237  (overall best)
+  gen 14/50  best J=22.0912  overall=22.0237
+  gen 15/50  best J=22.0912  overall=22.0237
+  gen 16/50  best J=22.0912  overall=22.0237
+  gen 17/50  best J=21.8167  (overall best)
+  gen 18/50  best J=21.8167  overall=21.8167
+  gen 19/50  best J=21.6463  (overall best)
+  gen 20/50  best J=21.6463  overall=21.6463
+  gen 21/50  best J=21.6998  overall=21.6463
+  gen 22/50  best J=21.7078  overall=21.6463
+  gen 23/50  best J=21.5296  (overall best)
+  gen 24/50  best J=21.5466  overall=21.5296
+  gen 25/50  best J=21.5466  overall=21.5296
+  gen 26/50  best J=21.5466  overall=21.5296
+  gen 27/50  best J=21.7492  overall=21.5296
+  gen 28/50  best J=21.7492  overall=21.5296
+  gen 29/50  best J=21.5868  overall=21.5296
+  gen 30/50  best J=21.8131  overall=21.5296
+  gen 31/50  best J=21.8131  overall=21.5296
+  gen 32/50  best J=21.7429  overall=21.5296
+  gen 33/50  best J=21.7357  overall=21.5296
+  gen 34/50  best J=21.6892  overall=21.5296
+  gen 35/50  best J=21.8263  overall=21.5296
+  gen 36/50  best J=21.6352  overall=21.5296
+  gen 37/50  best J=21.6334  overall=21.5296
+  gen 38/50  best J=21.4781  (overall best)
+  gen 39/50  best J=21.6924  overall=21.4781
+  gen 40/50  best J=21.6709  overall=21.4781
+  gen 41/50  best J=21.6518  overall=21.4781
+  gen 42/50  best J=21.635  overall=21.4781
+  gen 43/50  best J=21.6806  overall=21.4781
+  gen 44/50  best J=21.6707  overall=21.4781
+  gen 45/50  best J=21.6707  overall=21.4781
+  gen 46/50  best J=21.6707  overall=21.4781
+  gen 47/50  best J=21.5255  overall=21.4781
+  gen 48/50  best J=21.5255  overall=21.4781
+  gen 49/50  best J=21.5851  overall=21.4781
+  gen 50/50  best J=21.5851  overall=21.4781
+
+Wrote /home/suporte/Conceptio_Services/Rust_models/experiments/daidalus_ga/ga_run_20260322_180945.json
