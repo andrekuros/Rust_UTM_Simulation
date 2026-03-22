@@ -600,13 +600,6 @@ fn daa_monitoring_system(
     }
 }
 
-/// Closest threat in horizontal/vertical DAA envelope (Python-style).
-fn horizontal_dist2_xz(a: Vec3, b: Vec3) -> f32 {
-    let dx = a.x - b.x;
-    let dz = a.z - b.z;
-    dx * dx + dz * dz
-}
-
 /// Closest point on segment AB to point P in the XZ plane (Y from `p`).
 fn closest_point_on_segment_xz(p: Vec3, a: Vec3, b: Vec3) -> Vec3 {
     let abx = b.x - a.x;
@@ -623,35 +616,36 @@ fn closest_point_on_segment_xz(p: Vec3, a: Vec3, b: Vec3) -> Vec3 {
     Vec3::new(a.x + abx * t, p.y, a.z + abz * t)
 }
 
-/// Closest point on polyline [start_idx ..] to `p` in XZ.
-fn closest_point_on_polyline_xz(p: Vec3, waypoints: &[Vec3], start_idx: usize) -> Vec3 {
-    if waypoints.len() < 2 || start_idx >= waypoints.len() {
-        return p;
-    }
-    let mut best = p;
-    let mut best_d2 = f32::MAX;
-    for i in start_idx..(waypoints.len() - 1) {
-        let c = closest_point_on_segment_xz(p, waypoints[i], waypoints[i + 1]);
-        let d2 = horizontal_dist2_xz(p, c);
-        if d2 < best_d2 {
-            best_d2 = d2;
-            best = c;
-        }
-    }
-    best
-}
-
-/// Pull `candidate` horizontally toward the polyline if farther than `max_m` (XZ).
-fn clamp_to_route_corridor_xz(
+/// Pull `candidate` horizontally toward the **active mission leg** if farther than `max_m` (XZ).
+///
+/// The active leg is `(waypoints[i-1], waypoints[i])` where `i == current_waypoint_index` (the
+/// waypoint the drone is flying toward). This matches “stay near the segment you are on”.
+///
+/// **Why not** `[i .. end]` polylines: for SJC-style plans, when `i` points at the cruise endpoint,
+/// `i..end-1` is only the **descent** segment, which shares one (x,z) — degenerate in XZ — and
+/// clamps all evasion onto the pad column, killing en-route avoidance. Two-waypoint missions
+/// often had `i == len-1`, so the polyline range was empty and clamp was a no-op — masking the bug.
+fn clamp_to_active_route_leg_xz(
     candidate: Vec3,
-    waypoints: &[Vec3],
-    start_idx: usize,
+    plan: &crate::agents::FlightPlan,
     max_m: f32,
 ) -> Vec3 {
-    if max_m <= 0.0 || waypoints.len() < 2 {
+    if max_m <= 0.0 || plan.waypoints.len() < 2 {
         return candidate;
     }
-    let on = closest_point_on_polyline_xz(candidate, waypoints, start_idx);
+    let i = plan.current_waypoint_index;
+    if i == 0 || i >= plan.waypoints.len() {
+        return candidate;
+    }
+    let a = plan.waypoints[i - 1];
+    let b = plan.waypoints[i];
+    let abx = b.x - a.x;
+    let abz = b.z - a.z;
+    if abx * abx + abz * abz < 1e-4 {
+        // Pure-vertical leg in XZ: no meaningful horizontal corridor (climb/descent column).
+        return candidate;
+    }
+    let on = closest_point_on_segment_xz(candidate, a, b);
     let dx = candidate.x - on.x;
     let dz = candidate.z - on.z;
     let h = (dx * dx + dz * dz).sqrt();
@@ -855,13 +849,33 @@ fn reactive_avoidance_system(
                         } else {
                             to_wp.normalize()
                         };
-                        let m = tune.track_mix.clamp(0.0, 1.0);
+                        // When DAIDALUS "safe" heading ≈ track to waypoint, track_mix pulls the
+                        // virtual target onto the original leg → velocity stays straight (alerts fire
+                        // but no visible lateral maneuver). Tighten blend when close; if still
+                        // collinear with route, force a horizontal sidestep toward dir_safe.
+                        let m_base = tune.track_mix.clamp(0.0, 1.0);
+                        let m = m_base * (alert.distance / 220.0_f32).clamp(0.0, 1.0);
                         let blended = dir_safe * (1.0 - m) + dir_wp * m;
-                        let dir = if blended.length_squared() < 1e-6 {
+                        let mut dir = if blended.length_squared() < 1e-6 {
                             dir_safe
                         } else {
                             blended.normalize()
                         };
+                        let align_xz = dir.x * dir_wp.x + dir.z * dir_wp.z;
+                        if align_xz.abs() > 0.88 {
+                            let mut right = Vec3::new(-dir_wp.z, 0.0, dir_wp.x);
+                            if right.length_squared() < 1e-6 {
+                                right = Vec3::new(1.0, 0.0, 0.0);
+                            } else {
+                                right = right.normalize();
+                            }
+                            let left = -right;
+                            dir = if dir_safe.dot(right) >= dir_safe.dot(left) {
+                                right
+                            } else {
+                                left
+                            };
+                        }
                         dir * tune.evasion_offset_m
                     }
                 }
@@ -881,12 +895,7 @@ fn reactive_avoidance_system(
                     target.y = pos.y;
                 }
                 if mode == crate::AvoidanceMode::Daidalus && tune.max_cross_track_m > 0.0 {
-                    target = clamp_to_route_corridor_xz(
-                        target,
-                        &plan.waypoints,
-                        plan.current_waypoint_index,
-                        tune.max_cross_track_m,
-                    );
+                    target = clamp_to_active_route_leg_xz(target, plan, tune.max_cross_track_m);
                     target.y = pos.y;
                 }
                 avoidance.target = Some(target);

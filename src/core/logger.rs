@@ -48,6 +48,11 @@ pub struct TelemetryEntry {
     pub velocity: Option<[f32; 3]>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub flight_state: Option<String>,
+    /// True when `ReactiveAvoidance.target` is set (lateral virtual waypoint active).
+    /// Compare with `collision_alerts`: alerts without reactive target indicate DAA saw traffic
+    /// but steering did not engage (e.g. final-approach guard, cooldown, or filter mismatch).
+    #[serde(default)]
+    pub has_reactive_target: bool,
     pub collision_alerts: Vec<CollisionLog>,
 }
 
@@ -106,7 +111,9 @@ impl Plugin for LoggerPlugin {
            .init_resource::<LogTimer>()
            .init_resource::<SimMetrics>()
            .add_systems(Startup, init_logging)
-           .add_systems(Update, (macproxy_system, telemetry_system).chain())
+           .add_systems(Update, macproxy_system)
+           // After Daidalus reactive_avoidance_system (Update) so has_reactive_target matches steering.
+           .add_systems(Last, telemetry_system)
            .add_systems(Last, export_on_exit);
     }
 }
@@ -335,17 +342,19 @@ fn telemetry_system(
         if !log_timer.0.tick(time.delta()).just_finished() {
             return;
         }
-        for (drone, transform, vel, _plan, _avoid, fs_opt) in query.iter() {
+        for (drone, transform, vel, _plan, avoid_opt, fs_opt) in query.iter() {
             let pos = transform.translation;
             let is_airborne = pos.y >= 2.0 || vel.0.length() > 0.5;
             if !is_airborne { continue; }
             let (alerts, _) = build_alerts_for_drone(&drone.id, &active_collisions);
+            let has_reactive = avoid_opt.map(|a| a.target.is_some()).unwrap_or(false);
             write_entry(&TelemetryEntry {
                 time_elapsed: current_time,
                 drone_id: drone.id.clone(),
                 position: [pos.x, pos.y, pos.z],
                 velocity: Some([vel.0.x, vel.0.y, vel.0.z]),
                 flight_state: fs_opt.map(|s| s.to_string()),
+                has_reactive_target: has_reactive,
                 collision_alerts: alerts,
             });
         }
@@ -381,6 +390,7 @@ fn telemetry_system(
                 position: [pos.x, pos.y, pos.z],
                 velocity: Some([vel.0.x, vel.0.y, vel.0.z]),
                 flight_state: fs_opt.map(|s| s.to_string()),
+                has_reactive_target: has_avoid,
                 collision_alerts: alerts,
             });
         }

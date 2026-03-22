@@ -41,6 +41,43 @@
             background: rgba(0, 0, 0, 0.7);
             padding: 15px;
             border-radius: 8px;
+            max-width: min(420px, 92vw);
+        }
+
+        #resultsPickerRow {
+            margin-top: 12px;
+            display: none;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        #resultsPickerRow.visible {
+            display: flex;
+        }
+
+        #resultsSelect {
+            width: 100%;
+            max-width: 100%;
+            background: #2a2a2a;
+            color: #fff;
+            border: 1px solid #555;
+            padding: 6px;
+            font-size: 0.82em;
+        }
+
+        .btn-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+
+        button.secondary {
+            background: #444;
+        }
+
+        button.secondary:hover {
+            background: #555;
         }
 
         input[type="range"] {
@@ -73,7 +110,15 @@
     <div id="controls">
         <h3>UTM Telemetry Viewer</h3>
         <input type="file" id="fileInput" accept=".json,.ndjson,application/x-ndjson">
-        <div id="status" style="margin-top: 10px; font-size: 0.9em; color: #aaa;">Load simulation_telemetry.ndjson (metadata line includes planned routes).
+        <div id="status" style="margin-top: 10px; font-size: 0.9em; color: #aaa;">Load simulation_telemetry.ndjson (metadata line includes planned routes), or use the picker when served via <code style="font-size:0.85em">python3 viewer/results_server.py</code>.
+        </div>
+        <div id="resultsPickerRow">
+            <div style="font-size:0.85em;color:#8cf;">Results from repo (newest first)</div>
+            <select id="resultsSelect" size="1" aria-label="Saved run"></select>
+            <div class="btn-row">
+                <button type="button" id="btnRefreshRuns" class="secondary">Refresh list</button>
+                <button type="button" id="btnLoadSelected">Load selected</button>
+            </div>
         </div>
     </div>
 
@@ -197,75 +242,163 @@
         }
 
         // --- 3. Telemetry Loading ---
-        document.getElementById('fileInput').addEventListener('change', async function (e) {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            document.getElementById('status').innerText = `Loading sparse event stream...`;
-            document.getElementById('ui').style.display = 'none';
-
+        async function parseNdjsonFromReader(reader) {
             droneTimelines.clear();
             times = [];
             metadata = null;
             let frameCount = 0;
             let maxTime = 0;
+            let buffer = "";
 
-            try {
-                const stream = file.stream();
-                const decoder = new TextDecoderStream();
-                const reader = stream.pipeThrough(decoder).getReader();
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
 
-                let buffer = "";
+                buffer += value;
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
 
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
+                for (const line of lines) {
+                    const sline = line.trim();
+                    if (!sline) continue;
 
-                    buffer += value;
-                    let lines = buffer.split('\n');
-                    buffer = lines.pop();
+                    const entry = JSON.parse(sline);
 
-                    for (const line of lines) {
-                        const sline = line.trim();
-                        if (!sline) continue;
+                    if (entry.metadata) {
+                        metadata = entry.metadata;
+                        continue;
+                    }
 
-                        const entry = JSON.parse(sline);
+                    const t = entry.time_elapsed;
+                    if (t > maxTime) maxTime = t;
 
-                        if (entry.metadata) {
-                            metadata = entry.metadata;
-                            continue;
-                        }
+                    if (!droneTimelines.has(entry.drone_id)) {
+                        droneTimelines.set(entry.drone_id, []);
+                    }
 
-                        const t = entry.time_elapsed;
-                        if (t > maxTime) maxTime = t;
+                    droneTimelines.get(entry.drone_id).push({
+                        t: t,
+                        pos: new Float32Array(entry.position),
+                        alerts: entry.collision_alerts || []
+                    });
 
-                        if (!droneTimelines.has(entry.drone_id)) {
-                            droneTimelines.set(entry.drone_id, []);
-                        }
-
-                        droneTimelines.get(entry.drone_id).push({
-                            t: t,
-                            pos: new Float32Array(entry.position),
-                            alerts: entry.collision_alerts || []
-                        });
-
-                        frameCount++;
-                        if (frameCount % 10000 === 0) {
-                            document.getElementById('status').innerText = `Parsed ${frameCount} sparse events...`;
-                        }
+                    frameCount++;
+                    if (frameCount % 10000 === 0) {
+                        document.getElementById('status').innerText = `Parsed ${frameCount} sparse events...`;
                     }
                 }
+            }
 
-                totalTime = maxTime;
-                times = [0, totalTime];
+            totalTime = maxTime;
+            times = [0, totalTime];
+            return { frameCount, droneCount: droneTimelines.size };
+        }
 
-                document.getElementById('status').innerText = `Loaded ${frameCount} events across ${droneTimelines.size} drones.`;
-                finalizeViewerLoading();
+        async function ingestTelemetryStream(webStream, loadingMsg) {
+            document.getElementById('status').innerText = loadingMsg;
+            document.getElementById('ui').style.display = 'none';
+            const decoder = new TextDecoderStream();
+            const reader = webStream.pipeThrough(decoder).getReader();
+            const { frameCount, droneCount } = await parseNdjsonFromReader(reader);
+            document.getElementById('status').innerText = `Loaded ${frameCount} events across ${droneCount} drones.`;
+            finalizeViewerLoading();
+        }
 
+        document.getElementById('fileInput').addEventListener('change', async function (e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            try {
+                await ingestTelemetryStream(file.stream(), `Loading ${file.name}…`);
             } catch (err) {
                 alert("Error reading stream: " + err.message);
             }
         });
+
+        let cachedRuns = [];
+
+        function formatRunTime(ts) {
+            try {
+                return new Date(ts * 1000).toLocaleString();
+            } catch (_) {
+                return String(ts);
+            }
+        }
+
+        async function refreshRunsList(selectPath) {
+            const sel = document.getElementById('resultsSelect');
+            const row = document.getElementById('resultsPickerRow');
+            try {
+                const r = await fetch('api/runs');
+                if (!r.ok) throw new Error('api/runs ' + r.status);
+                const data = await r.json();
+                cachedRuns = data.runs || [];
+                sel.innerHTML = '';
+                if (cachedRuns.length === 0) {
+                    const o = document.createElement('option');
+                    o.value = '';
+                    o.textContent = '(no simulation_telemetry.ndjson found)';
+                    sel.appendChild(o);
+                    row.classList.add('visible');
+                    document.getElementById('status').innerText = 'No runs under experiments/encounter_battery/results — run a battery or set VIEWER_RESULTS_GLOBS.';
+                    return;
+                }
+                cachedRuns.forEach((run, i) => {
+                    const o = document.createElement('option');
+                    o.value = run.telemetry_path;
+                    const sz = run.size_bytes >= 1e6 ? (run.size_bytes / 1e6).toFixed(1) + ' MB' : (run.size_bytes / 1e3).toFixed(0) + ' KB';
+                    o.textContent = `${formatRunTime(run.mtime)} — ${run.label} (${sz})`;
+                    o.title = run.telemetry_path;
+                    sel.appendChild(o);
+                });
+                row.classList.add('visible');
+                if (selectPath) {
+                    const idx = cachedRuns.findIndex(x => x.telemetry_path === selectPath);
+                    if (idx >= 0) sel.selectedIndex = idx;
+                }
+            } catch (err) {
+                row.classList.remove('visible');
+            }
+        }
+
+        async function loadSelectedTelemetryPath(telemetryPath) {
+            if (!telemetryPath) return;
+            try {
+                const url = 'api/telemetry?path=' + encodeURIComponent(telemetryPath);
+                const res = await fetch(url);
+                if (!res.ok) {
+                    const t = await res.text();
+                    throw new Error(res.status + ' ' + t);
+                }
+                if (!res.body) throw new Error('no response body');
+                await ingestTelemetryStream(res.body, 'Loading ' + telemetryPath + '…');
+                const u = new URL(window.location.href);
+                u.searchParams.set('telemetry', telemetryPath);
+                window.history.replaceState({}, '', u);
+            } catch (err) {
+                alert('Load failed: ' + err.message);
+            }
+        }
+
+        document.getElementById('btnRefreshRuns').addEventListener('click', () => refreshRunsList());
+        document.getElementById('btnLoadSelected').addEventListener('click', () => {
+            const v = document.getElementById('resultsSelect').value;
+            loadSelectedTelemetryPath(v);
+        });
+        document.getElementById('resultsSelect').addEventListener('dblclick', () => {
+            const v = document.getElementById('resultsSelect').value;
+            loadSelectedTelemetryPath(v);
+        });
+
+        (async function initResultsPickerFromUrl() {
+            await refreshRunsList();
+            const params = new URLSearchParams(window.location.search);
+            const tel = params.get('telemetry');
+            if (tel) {
+                const sel = document.getElementById('resultsSelect');
+                if (cachedRuns.some(x => x.telemetry_path === tel)) sel.value = tel;
+                await loadSelectedTelemetryPath(tel);
+            }
+        })();
 
         /** Match sim “airborne” (e.g. DAA / avoidance) — hide route clutter on ground. */
         const ROUTE_AIRBORNE_Y = 5.0;
