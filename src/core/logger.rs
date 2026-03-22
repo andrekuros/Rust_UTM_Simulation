@@ -156,6 +156,8 @@ fn macproxy_system(
         &crate::agents::FlightState,
         &mut crate::core::route_metrics::MissionRouteMetrics,
     )>,
+    metadata: Res<crate::ScenarioMetadata>,
+    landing_ignore: Res<crate::daidalus::LandingCollisionIgnoreConfig>,
     active_collisions: Res<crate::daidalus::ActiveCollisions>,
     mut metrics: ResMut<SimMetrics>,
 ) {
@@ -212,6 +214,14 @@ fn macproxy_system(
     let mut check = |i: usize, j: usize| {
         let (ref id_a, pos_a) = airborne[i];
         let (ref id_b, pos_b) = airborne[j];
+        if crate::daidalus::landing_collision_pair_ignored(
+            metadata.as_ref(),
+            pos_a,
+            pos_b,
+            landing_ignore.as_ref(),
+        ) {
+            return;
+        }
         let dh = ((pos_a.x - pos_b.x).powi(2) + (pos_a.z - pos_b.z).powi(2)).sqrt();
         let dv = (pos_a.y - pos_b.y).abs();
         let pair = ordered_pair(id_a, id_b);

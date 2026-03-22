@@ -122,9 +122,19 @@ struct SimulationConfigJSON {
     /// When to add ideal/real into global totals: `spawn` (legacy) vs `mission_complete` (Python-style).
     #[serde(default)]
     route_metrics_timing: Option<RouteMetricsTiming>,
+    /// None = legacy rectangular overlap; Some(r) = cylindrical ignore with radius `r` (m) around hub centres.
+    #[serde(default)]
+    landing_collision_ignore_radius_m: Option<f32>,
+    /// Vertical cap (m) for cylindrical landing ignore (flight levels).
+    #[serde(default = "default_landing_ignore_height_max_m")]
+    landing_collision_ignore_height_max_m: f32,
     // Legacy field — mapped to log_level internally
     #[serde(default)]
     log_periodic: Option<bool>,
+}
+
+fn default_landing_ignore_height_max_m() -> f32 {
+    350.0
 }
 
 #[derive(Serialize, Deserialize)]
@@ -183,6 +193,11 @@ fn main() {
             .unwrap_or(RouteMetricsTiming::MissionComplete),
     };
 
+    let landing_collision_ignore = crate::daidalus::LandingCollisionIgnoreConfig {
+        radius_m: root_config.simulation.landing_collision_ignore_radius_m,
+        height_max_m: root_config.simulation.landing_collision_ignore_height_max_m,
+    };
+
     println!(
         "Starting simulation: duration {}s, collision threshold {}m, scenario {}, avoidance_mode {:?}, mqtt_enabled {}, log_level {:?}, physics_hz {}",
         sim_duration,
@@ -217,6 +232,7 @@ fn main() {
         })
         .insert_resource(crate::daidalus::ReactiveDronesConfig(avoidance_mode))
         .insert_resource(crate::daidalus::DaaIntervalConfig(daa_interval_s))
+        .insert_resource(landing_collision_ignore)
         .insert_resource(daidalus_tune)
         .insert_resource(crate::daidalus::Python4bWind(
             avoidance_mode == AvoidanceMode::Python4b,

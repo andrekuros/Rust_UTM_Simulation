@@ -6,7 +6,9 @@
         "reactive_drones": false,
         "scenario_file": "config/scenario_dynamic.json",
         "avoidance_mode": "Daidalus",
-        "enable_mqtt": true
+        "enable_mqtt": false,
+        "landing_collision_ignore_radius_m": 50.0,
+        "landing_collision_ignore_height_max_m": 350.0
     },
     "scenario": {
         "num_drones": 150,

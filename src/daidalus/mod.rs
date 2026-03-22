@@ -69,6 +69,15 @@ pub struct DaidalusTuneConfig {
     /// avoidance target. Matches the spirit of Python2’s fixed lateral step, but keeps
     /// DAIDALUS-based headings from “walking” arbitrarily far from the route. `0` = no clamp.
     pub max_cross_track_m: f32,
+    /// Horizontal distance (m) to the **last** mission waypoint: below this, Daidalus reactive
+    /// steering is disabled so aircraft can complete landing instead of orbiting with a partner
+    /// at the same hub. `0` = disable this guard.
+    #[serde(default = "default_final_approach_no_reactive_radius_m")]
+    pub final_approach_no_reactive_radius_m: f32,
+}
+
+fn default_final_approach_no_reactive_radius_m() -> f32 {
+    120.0
 }
 
 impl Default for DaidalusTuneConfig {
@@ -83,6 +92,7 @@ impl Default for DaidalusTuneConfig {
             cpp_lookahead_s: 0.0,
             cpp_horizontal_nmac_m: 0.0,
             max_cross_track_m: 350.0,
+            final_approach_no_reactive_radius_m: 120.0,
         }
     }
 }
@@ -159,6 +169,79 @@ impl Default for DaaIntervalConfig {
     }
 }
 
+/// When both aircraft are in the same terminal volume, DAA / collision alerts are skipped.
+/// - `radius_m: None` — legacy: both must lie inside the same rectangular [`crate::agents::RectZone`].
+/// - `radius_m: Some(r)` — both within `r` metres horizontally of the **same** hub centre
+///   (zone XZ centroid or a `landing_points` entry) and **both** with `y` in `[0, height_max_m]`.
+#[derive(Resource, Clone, Copy, Debug)]
+pub struct LandingCollisionIgnoreConfig {
+    pub radius_m: Option<f32>,
+    pub height_max_m: f32,
+}
+
+impl Default for LandingCollisionIgnoreConfig {
+    fn default() -> Self {
+        Self {
+            radius_m: None,
+            height_max_m: 400.0,
+        }
+    }
+}
+
+/// Horizontal distance in the XZ plane from a column at `(cx, cz)`.
+fn horizontal_dist_to_column(pos: Vec3, cx: f32, cz: f32) -> f32 {
+    let dx = pos.x - cx;
+    let dz = pos.z - cz;
+    (dx * dx + dz * dz).sqrt()
+}
+
+fn legacy_both_in_rect_zone(
+    metadata: &crate::ScenarioMetadata,
+    pos_a: Vec3,
+    pos_b: Vec3,
+) -> bool {
+    metadata
+        .departure_landing_zones
+        .iter()
+        .any(|z| z.contains_pos(pos_a) && z.contains_pos(pos_b))
+}
+
+/// Terminal airspace: ignore pairwise DAA / MACproxy when both drones are in the same volume.
+pub fn landing_collision_pair_ignored(
+    metadata: &crate::ScenarioMetadata,
+    pos_a: Vec3,
+    pos_b: Vec3,
+    cfg: &LandingCollisionIgnoreConfig,
+) -> bool {
+    if let Some(radius) = cfg.radius_m {
+        let y_max = cfg.height_max_m;
+        if pos_a.y < 0.0 || pos_b.y < 0.0 || pos_a.y > y_max || pos_b.y > y_max {
+            return false;
+        }
+        for zone in &metadata.departure_landing_zones {
+            let cx = (zone.min[0] + zone.max[0]) * 0.5;
+            let cz = (zone.min[1] + zone.max[1]) * 0.5;
+            let da = horizontal_dist_to_column(pos_a, cx, cz);
+            let db = horizontal_dist_to_column(pos_b, cx, cz);
+            if da <= radius && db <= radius {
+                return true;
+            }
+        }
+        for lp in &metadata.landing_points {
+            let cx = lp[0];
+            let cz = lp[2];
+            let da = horizontal_dist_to_column(pos_a, cx, cz);
+            let db = horizontal_dist_to_column(pos_b, cx, cz);
+            if da <= radius && db <= radius {
+                return true;
+            }
+        }
+        false
+    } else {
+        legacy_both_in_rect_zone(metadata, pos_a, pos_b)
+    }
+}
+
 #[derive(Resource)]
 struct DaaTimer(Timer);
 
@@ -207,6 +290,7 @@ fn legacy_geom_alerts(
     metadata: &crate::ScenarioMetadata,
     daa_h: f32,
     daa_v: f32,
+    landing_ignore: &LandingCollisionIgnoreConfig,
 ) -> Vec<CollisionAlert> {
     let cell = 250.0_f32;
     let mut grid: std::collections::HashMap<(i32, i32, i32), Vec<usize>> =
@@ -266,11 +350,7 @@ fn legacy_geom_alerts(
             continue;
         }
 
-        let both_in_zone = metadata
-            .departure_landing_zones
-            .iter()
-            .any(|z| z.contains_pos(*pos_a) && z.contains_pos(*pos_b));
-        if both_in_zone {
+        if landing_collision_pair_ignored(metadata, *pos_a, *pos_b, landing_ignore) {
             continue;
         }
 
@@ -300,6 +380,7 @@ fn run_daidalus_evaluation(
     metadata: &crate::ScenarioMetadata,
     threshold: f32,
     cpp_tune: &ffi::DaidalusCppTune,
+    landing_ignore: &LandingCollisionIgnoreConfig,
 ) -> Vec<CollisionAlert> {
     let mut bridge = DaidalusBridge::new_with_cpp_tune(cpp_tune);
     let cell_size = 250.0_f32;
@@ -351,11 +432,7 @@ fn run_daidalus_evaluation(
         let (id_a, pos_a, vel_a) = &agents[idx_a];
         let (id_b, pos_b, vel_b) = &agents[idx_b];
 
-        let both_in_zone = metadata
-            .departure_landing_zones
-            .iter()
-            .any(|z| z.contains_pos(*pos_a) && z.contains_pos(*pos_b));
-        if both_in_zone {
+        if landing_collision_pair_ignored(metadata, *pos_a, *pos_b, landing_ignore) {
             continue;
         }
 
@@ -448,6 +525,7 @@ fn daa_monitoring_system(
     metadata: Res<crate::ScenarioMetadata>,
     mut active_collisions: ResMut<ActiveCollisions>,
     daidalus_tune: Res<DaidalusTuneConfig>,
+    landing_ignore: Res<LandingCollisionIgnoreConfig>,
 ) {
     let mode = reactive_cfg
         .as_ref()
@@ -479,8 +557,13 @@ fn daa_monitoring_system(
                 })
                 .collect();
             let cpp = daidalus_tune.cpp_ffi();
-            active_collisions.alerts =
-                run_daidalus_evaluation(&agents, &metadata, threshold, &cpp);
+            active_collisions.alerts = run_daidalus_evaluation(
+                &agents,
+                &metadata,
+                threshold,
+                &cpp,
+                &landing_ignore,
+            );
         }
         crate::AvoidanceMode::Python2 => {
             let agents: Vec<(String, Vec3)> = query
@@ -488,7 +571,13 @@ fn daa_monitoring_system(
                 .filter(|(_, transform, _)| transform.translation.y >= 5.0)
                 .map(|(drone, transform, _)| (drone.id.clone(), transform.translation))
                 .collect();
-            active_collisions.alerts = legacy_geom_alerts(&agents, &metadata, 150.0, 30.0);
+            active_collisions.alerts = legacy_geom_alerts(
+                &agents,
+                &metadata,
+                150.0,
+                30.0,
+                &landing_ignore,
+            );
         }
         crate::AvoidanceMode::Python4a | crate::AvoidanceMode::Python4b => {
             let agents: Vec<(String, Vec3)> = query
@@ -496,7 +585,13 @@ fn daa_monitoring_system(
                 .filter(|(_, transform, _)| transform.translation.y >= 5.0)
                 .map(|(drone, transform, _)| (drone.id.clone(), transform.translation))
                 .collect();
-            active_collisions.alerts = legacy_geom_alerts(&agents, &metadata, 25.0, 12.0);
+            active_collisions.alerts = legacy_geom_alerts(
+                &agents,
+                &metadata,
+                25.0,
+                12.0,
+                &landing_ignore,
+            );
         }
         crate::AvoidanceMode::None => {}
     }
@@ -568,6 +663,15 @@ fn clamp_to_route_corridor_xz(
     }
 }
 
+/// Horizontal distance in XZ from `pos` to the flight plan’s last waypoint (typically over the pad).
+fn horizontal_dist_to_last_waypoint_xz(pos: Vec3, plan: &crate::agents::FlightPlan) -> Option<f32> {
+    plan.waypoints.last().map(|wp| {
+        let dx = pos.x - wp.x;
+        let dz = pos.z - wp.z;
+        (dx * dx + dz * dz).sqrt()
+    })
+}
+
 fn closest_threat_pos(
     self_id: &str,
     self_pos: Vec3,
@@ -609,6 +713,7 @@ fn reactive_avoidance_system(
         &Transform,
         &mut crate::agents::ReactiveAvoidance,
         &crate::agents::FlightPlan,
+        &crate::agents::FlightState,
     )>,
 ) {
     let mode = reactive_cfg
@@ -626,7 +731,7 @@ fn reactive_avoidance_system(
     ) {
         let agents: Vec<(String, Vec3)> = query
             .iter()
-            .map(|(d, t, _, _)| (d.id.clone(), t.translation))
+            .map(|(d, t, _, _, _)| (d.id.clone(), t.translation))
             .collect();
 
         let (daa_h, daa_v, evade_s) = match mode {
@@ -635,7 +740,7 @@ fn reactive_avoidance_system(
             _ => unreachable!(),
         };
 
-        for (drone, transform, mut avoidance, plan) in query.iter_mut() {
+        for (drone, transform, mut avoidance, plan, _state) in query.iter_mut() {
             let pos = transform.translation;
             if pos.y < 5.0 {
                 continue;
@@ -674,7 +779,23 @@ fn reactive_avoidance_system(
 
     let tune = *daidalus_tune;
     let thresh = safety.collision_threshold;
-    for (drone, transform, mut avoidance, plan) in query.iter_mut() {
+    for (drone, transform, mut avoidance, plan, state) in query.iter_mut() {
+        let pos = transform.translation;
+
+        // Avoid fighting the same landing point: disable lateral Daidalus targets on final approach
+        // or while descending, so paired traffic does not orbit indefinitely.
+        if mode == crate::AvoidanceMode::Daidalus {
+            let on_final = tune.final_approach_no_reactive_radius_m > 0.0
+                && horizontal_dist_to_last_waypoint_xz(pos, plan)
+                    .map(|d| d <= tune.final_approach_no_reactive_radius_m)
+                    .unwrap_or(false);
+            if *state == crate::agents::FlightState::Landing || on_final {
+                avoidance.target = None;
+                avoidance.until_time = 0.0;
+                continue;
+            }
+        }
+
         if avoidance.until_time > 0.0 && now < avoidance.until_time {
             continue;
         }
@@ -703,7 +824,6 @@ fn reactive_avoidance_system(
             .max_by_key(|a| a.alert_level);
 
         if let Some(alert) = in_alert {
-            let pos = transform.translation;
             let offset = match mode {
                 crate::AvoidanceMode::Fixed => Vec3::new(1.0, 0.0, 1.0).normalize() * 200.0,
                 crate::AvoidanceMode::Daidalus => {
