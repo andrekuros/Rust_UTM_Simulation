@@ -55,6 +55,7 @@
             display: flex;
         }
 
+        #experimentSelect,
         #resultsSelect {
             width: 100%;
             max-width: 100%;
@@ -63,6 +64,10 @@
             border: 1px solid #555;
             padding: 6px;
             font-size: 0.82em;
+        }
+
+        #experimentSelect {
+            font-weight: 600;
         }
 
         .btn-row {
@@ -101,6 +106,56 @@
             min-width: 60px;
             font-variant-numeric: tabular-nums;
         }
+
+        /* Telemetry load progress */
+        #loadProgressWrap {
+            display: none;
+            margin-top: 10px;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        #loadProgressWrap.visible {
+            display: flex;
+        }
+
+        .load-progress-track {
+            width: 100%;
+            height: 10px;
+            background: #2a2a2a;
+            border-radius: 5px;
+            overflow: hidden;
+            border: 1px solid #444;
+        }
+
+        .load-progress-bar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #0d6efd, #5eb3ff);
+            border-radius: 4px;
+            transition: width 0.12s ease-out;
+        }
+
+        .load-progress-bar.indeterminate {
+            width: 35% !important;
+            animation: loadBarIndet 1.1s ease-in-out infinite;
+        }
+
+        @keyframes loadBarIndet {
+            0% {
+                transform: translateX(-100%);
+            }
+
+            100% {
+                transform: translateX(380%);
+            }
+        }
+
+        #loadProgressText {
+            font-size: 0.78em;
+            color: #9ab;
+            font-variant-numeric: tabular-nums;
+        }
     </style>
 </head>
 
@@ -110,10 +165,19 @@
     <div id="controls">
         <h3>UTM Telemetry Viewer</h3>
         <input type="file" id="fileInput" accept=".json,.ndjson,application/x-ndjson">
-        <div id="status" style="margin-top: 10px; font-size: 0.9em; color: #aaa;">Load simulation_telemetry.ndjson (metadata line includes planned routes), or use the picker when served via <code style="font-size:0.85em">python3 viewer/results_server.py</code>.
+        <div id="status" style="margin-top: 10px; font-size: 0.9em; color: #aaa;">Load simulation_telemetry.ndjson (metadata line includes planned routes), or use the picker when served via <code style="font-size:0.85em">python3 viewer/results_server.py</code> (scans <code style="font-size:0.85em">experiments/</code>).
+        </div>
+        <div id="loadProgressWrap" aria-hidden="true">
+            <div class="load-progress-track">
+                <div id="loadProgressBar" class="load-progress-bar"></div>
+            </div>
+            <div id="loadProgressText"></div>
         </div>
         <div id="resultsPickerRow">
-            <div style="font-size:0.85em;color:#8cf;">Results from repo (newest first)</div>
+            <div style="font-size:0.85em;color:#8cf;">Experiment → run (newest first within each folder)</div>
+            <label for="experimentSelect" style="font-size:0.78em;color:#aaa;">Experiment</label>
+            <select id="experimentSelect" aria-label="Experiment project"></select>
+            <label for="resultsSelect" style="font-size:0.78em;color:#aaa;">Telemetry file</label>
             <select id="resultsSelect" size="1" aria-label="Saved run"></select>
             <div class="btn-row">
                 <button type="button" id="btnRefreshRuns" class="secondary">Refresh list</button>
@@ -242,7 +306,77 @@
         }
 
         // --- 3. Telemetry Loading ---
-        async function parseNdjsonFromReader(reader) {
+        function formatBytes(n) {
+            if (n >= 1e9) return (n / 1e9).toFixed(2) + ' GB';
+            if (n >= 1e6) return (n / 1e6).toFixed(2) + ' MB';
+            if (n >= 1e3) return (n / 1e3).toFixed(1) + ' KB';
+            return n + ' B';
+        }
+
+        function setLoadProgressVisible(visible) {
+            const wrap = document.getElementById('loadProgressWrap');
+            const bar = document.getElementById('loadProgressBar');
+            if (!visible) {
+                wrap.classList.remove('visible');
+                wrap.setAttribute('aria-hidden', 'true');
+                bar.classList.remove('indeterminate');
+                bar.style.width = '0%';
+                document.getElementById('loadProgressText').textContent = '';
+                document.getElementById('controls').removeAttribute('aria-busy');
+                return;
+            }
+            wrap.classList.add('visible');
+            wrap.setAttribute('aria-hidden', 'false');
+            document.getElementById('controls').setAttribute('aria-busy', 'true');
+        }
+
+        function setLoadProgressState(opts) {
+            opts = opts || {};
+            const bar = document.getElementById('loadProgressBar');
+            const text = document.getElementById('loadProgressText');
+            if (opts.indeterminate === true) {
+                bar.classList.add('indeterminate');
+                bar.style.width = '';
+            } else if (opts.indeterminate === false) {
+                bar.classList.remove('indeterminate');
+            }
+            if (opts.percent != null) {
+                bar.classList.remove('indeterminate');
+                const pct = Math.max(0, Math.min(100, opts.percent));
+                bar.style.width = pct + '%';
+            }
+            if (opts.text != null) text.textContent = opts.text;
+        }
+
+        /**
+         * Counts bytes and updates the bar. Returns { stream, state } where state.received
+         * is updated live (use in parse milestones for combined text).
+         */
+        function wrapBytesProgress(readable, totalBytes) {
+            const state = { received: 0 };
+            const stream = readable.pipeThrough(new TransformStream({
+                transform(chunk, controller) {
+                    state.received += chunk.byteLength;
+                    if (totalBytes > 0) {
+                        const pct = Math.min(99.5, (state.received / totalBytes) * 100);
+                        setLoadProgressState({
+                            indeterminate: false,
+                            percent: pct,
+                            text: `Reading… ${formatBytes(state.received)} / ${formatBytes(totalBytes)}`,
+                        });
+                    } else {
+                        setLoadProgressState({
+                            indeterminate: true,
+                            text: `Reading… ${formatBytes(state.received)}`
+                        });
+                    }
+                    controller.enqueue(chunk);
+                }
+            }));
+            return { stream, state };
+        }
+
+        async function parseNdjsonFromReader(reader, onFrameMilestone) {
             droneTimelines.clear();
             times = [];
             metadata = null;
@@ -283,8 +417,11 @@
                     });
 
                     frameCount++;
-                    if (frameCount % 10000 === 0) {
-                        document.getElementById('status').innerText = `Parsed ${frameCount} sparse events...`;
+                    if (frameCount % 5000 === 0) {
+                        document.getElementById('status').innerText = `Parsed ${frameCount.toLocaleString()} events…`;
+                        if (typeof onFrameMilestone === 'function') {
+                            onFrameMilestone(frameCount);
+                        }
                     }
                 }
             }
@@ -294,27 +431,73 @@
             return { frameCount, droneCount: droneTimelines.size };
         }
 
-        async function ingestTelemetryStream(webStream, loadingMsg) {
+        /**
+         * @param source ReadableStream of bytes (Uint8Array) OR fetch Response
+         * @param loadingMsg status line
+         * @param meta optional { totalBytes } when source is a raw byte stream (e.g. file)
+         */
+        async function ingestTelemetryStream(source, loadingMsg, meta) {
+            meta = meta || {};
             document.getElementById('status').innerText = loadingMsg;
             document.getElementById('ui').style.display = 'none';
+            setLoadProgressVisible(true);
+            setLoadProgressState({ indeterminate: true, text: 'Starting…' });
+
+            let byteStream;
+            let totalBytes = meta.totalBytes || 0;
+
+            if (source instanceof Response) {
+                const cl = source.headers.get('Content-Length');
+                totalBytes = cl ? parseInt(cl, 10) : 0;
+                if (!source.body) throw new Error('no response body');
+                byteStream = source.body;
+            } else {
+                byteStream = source;
+            }
+
+            const { stream: monitored, state: byteState } = wrapBytesProgress(byteStream, totalBytes);
             const decoder = new TextDecoderStream();
-            const reader = webStream.pipeThrough(decoder).getReader();
-            const { frameCount, droneCount } = await parseNdjsonFromReader(reader);
-            document.getElementById('status').innerText = `Loaded ${frameCount} events across ${droneCount} drones.`;
-            finalizeViewerLoading();
+            const reader = monitored.pipeThrough(decoder).getReader();
+
+            try {
+                const { frameCount, droneCount } = await parseNdjsonFromReader(reader, (fc) => {
+                    if (fc % 8000 !== 0) return;
+                    if (totalBytes > 0) {
+                        setLoadProgressState({
+                            indeterminate: false,
+                            percent: Math.min(99.5, (byteState.received / totalBytes) * 100),
+                            text: `Reading… ${formatBytes(byteState.received)} / ${formatBytes(totalBytes)} · parsed ${fc.toLocaleString()} events`
+                        });
+                    } else {
+                        setLoadProgressState({
+                            indeterminate: true,
+                            text: `Reading… ${formatBytes(byteState.received)} · parsed ${fc.toLocaleString()} events`
+                        });
+                    }
+                });
+                setLoadProgressState({ indeterminate: false, percent: 100, text: 'Done' });
+                document.getElementById('status').innerText = `Loaded ${frameCount.toLocaleString()} events across ${droneCount} drones.`;
+                finalizeViewerLoading();
+            } catch (e) {
+                throw e;
+            } finally {
+                setLoadProgressVisible(false);
+            }
         }
 
         document.getElementById('fileInput').addEventListener('change', async function (e) {
             const file = e.target.files[0];
             if (!file) return;
             try {
-                await ingestTelemetryStream(file.stream(), `Loading ${file.name}…`);
+                await ingestTelemetryStream(file.stream(), `Loading ${file.name}…`, { totalBytes: file.size });
             } catch (err) {
+                setLoadProgressVisible(false);
                 alert("Error reading stream: " + err.message);
             }
         });
 
         let cachedRuns = [];
+        let cachedExperiments = [];
 
         function formatRunTime(ts) {
             try {
@@ -324,37 +507,82 @@
             }
         }
 
-        async function refreshRunsList(selectPath) {
+        function runsPoolForExperiment(expId) {
+            if (!expId) return cachedRuns;
+            const g = cachedExperiments.find(x => x.id === expId);
+            return g && g.runs ? g.runs : [];
+        }
+
+        function fillExperimentSelect() {
+            const es = document.getElementById('experimentSelect');
+            es.innerHTML = '';
+            const total = cachedRuns.length;
+            const o0 = document.createElement('option');
+            o0.value = '';
+            o0.textContent = `(all experiments) — ${total} run(s)`;
+            es.appendChild(o0);
+            cachedExperiments.forEach((ex) => {
+                const o = document.createElement('option');
+                o.value = ex.id;
+                o.textContent = `${ex.id} — ${ex.run_count} run(s)`;
+                o.title = ex.path || ex.id;
+                es.appendChild(o);
+            });
+        }
+
+        function fillResultsSelect(selectPath) {
             const sel = document.getElementById('resultsSelect');
+            const expId = document.getElementById('experimentSelect').value;
+            const pool = runsPoolForExperiment(expId);
+            sel.innerHTML = '';
+            if (pool.length === 0) {
+                const o = document.createElement('option');
+                o.value = '';
+                o.textContent = '(no runs in this experiment)';
+                sel.appendChild(o);
+                return;
+            }
+            pool.forEach((run) => {
+                const o = document.createElement('option');
+                o.value = run.telemetry_path;
+                const sz = run.size_bytes >= 1e6 ? (run.size_bytes / 1e6).toFixed(1) + ' MB' : (run.size_bytes / 1e3).toFixed(0) + ' KB';
+                const prefix = expId ? '' : `[${run.experiment || '?'}] `;
+                o.textContent = `${prefix}${formatRunTime(run.mtime)} — ${run.label} (${sz})`;
+                o.title = run.telemetry_path;
+                sel.appendChild(o);
+            });
+            if (selectPath) {
+                const idx = pool.findIndex(x => x.telemetry_path === selectPath);
+                if (idx >= 0) sel.selectedIndex = idx;
+            }
+        }
+
+        async function refreshRunsList(selectPath, selectExperimentId) {
             const row = document.getElementById('resultsPickerRow');
             try {
                 const r = await fetch('api/runs');
                 if (!r.ok) throw new Error('api/runs ' + r.status);
                 const data = await r.json();
                 cachedRuns = data.runs || [];
-                sel.innerHTML = '';
+                cachedExperiments = data.experiments || [];
                 if (cachedRuns.length === 0) {
+                    document.getElementById('experimentSelect').innerHTML = '';
+                    document.getElementById('resultsSelect').innerHTML = '';
                     const o = document.createElement('option');
                     o.value = '';
                     o.textContent = '(no simulation_telemetry.ndjson found)';
-                    sel.appendChild(o);
+                    document.getElementById('resultsSelect').appendChild(o);
                     row.classList.add('visible');
-                    document.getElementById('status').innerText = 'No runs under experiments/encounter_battery/results — run a battery or set VIEWER_RESULTS_GLOBS.';
+                    document.getElementById('status').innerText =
+                        'No runs under experiments/ — generate telemetry or set VIEWER_RESULTS_GLOBS.';
                     return;
                 }
-                cachedRuns.forEach((run, i) => {
-                    const o = document.createElement('option');
-                    o.value = run.telemetry_path;
-                    const sz = run.size_bytes >= 1e6 ? (run.size_bytes / 1e6).toFixed(1) + ' MB' : (run.size_bytes / 1e3).toFixed(0) + ' KB';
-                    o.textContent = `${formatRunTime(run.mtime)} — ${run.label} (${sz})`;
-                    o.title = run.telemetry_path;
-                    sel.appendChild(o);
-                });
-                row.classList.add('visible');
-                if (selectPath) {
-                    const idx = cachedRuns.findIndex(x => x.telemetry_path === selectPath);
-                    if (idx >= 0) sel.selectedIndex = idx;
+                fillExperimentSelect();
+                if (selectExperimentId && cachedExperiments.some(e => e.id === selectExperimentId)) {
+                    document.getElementById('experimentSelect').value = selectExperimentId;
                 }
+                fillResultsSelect(selectPath);
+                row.classList.add('visible');
             } catch (err) {
                 row.classList.remove('visible');
             }
@@ -370,14 +598,19 @@
                     throw new Error(res.status + ' ' + t);
                 }
                 if (!res.body) throw new Error('no response body');
-                await ingestTelemetryStream(res.body, 'Loading ' + telemetryPath + '…');
+                await ingestTelemetryStream(res, 'Loading ' + telemetryPath + '…');
                 const u = new URL(window.location.href);
                 u.searchParams.set('telemetry', telemetryPath);
                 window.history.replaceState({}, '', u);
             } catch (err) {
+                setLoadProgressVisible(false);
                 alert('Load failed: ' + err.message);
             }
         }
+
+        document.getElementById('experimentSelect').addEventListener('change', () => {
+            fillResultsSelect();
+        });
 
         document.getElementById('btnRefreshRuns').addEventListener('click', () => refreshRunsList());
         document.getElementById('btnLoadSelected').addEventListener('click', () => {
@@ -394,8 +627,13 @@
             const params = new URLSearchParams(window.location.search);
             const tel = params.get('telemetry');
             if (tel) {
-                const sel = document.getElementById('resultsSelect');
-                if (cachedRuns.some(x => x.telemetry_path === tel)) sel.value = tel;
+                const hit = cachedRuns.find(x => x.telemetry_path === tel);
+                if (hit && hit.experiment) {
+                    document.getElementById('experimentSelect').value = hit.experiment;
+                    fillResultsSelect(tel);
+                } else {
+                    document.getElementById('resultsSelect').value = tel;
+                }
                 await loadSelectedTelemetryPath(tel);
             }
         })();

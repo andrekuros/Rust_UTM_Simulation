@@ -1,0 +1,3 @@
+out=/home/suporte/Conceptio_Services/Rust_models/experiments/xtm_primordial_rust/results/scen4b_fulllog_20260322_235555
+duration_s=28800.0 drones=50 log_interval_s=1.0 full telemetry
+  scen4b_n50_s42_no_daidalus_fulllog rc=0 telemetry=179311181 B ok

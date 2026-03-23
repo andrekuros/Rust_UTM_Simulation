@@ -1,0 +1,11 @@
+{
+  "scenario": "4b",
+  "duration_s": 90.0,
+  "num_drones": 10,
+  "seed": 42,
+  "physics_hz": 1.0,
+  "log_level": "full",
+  "log_interval_s": 2.0,
+  "genome_path": "/home/suporte/Conceptio_Services/Rust_models/experiments/daidalus_ga/best_genome.json",
+  "output_dir": "/home/suporte/Conceptio_Services/Rust_models/experiments/xtm_primordial_rust/results/scen4b_fulllog_20260322_235549"
+}

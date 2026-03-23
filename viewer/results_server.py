@@ -7,16 +7,19 @@ Serve the UTM viewer (viewer/index.html) and JSON + telemetry from experiment re
 
 API:
   GET /api/runs
-      Lists folders containing simulation_telemetry.ndjson (newest first).
+      Lists ``simulation_telemetry.ndjson`` files under allowed roots, **grouped by experiment**
+      (first directory under ``experiments/``, e.g. ``encounter_battery``, ``xtm_primordial_rust``).
+      Response includes ``experiments`` (list of {id, path, run_count, runs}) and ``runs`` (flat,
+      newest first) for backward compatibility.
+
   GET /api/telemetry?path=<repo-relative path to .ndjson>
       Streams the file (only under allowed results roots).
 
 Env:
   VIEWER_PORT   (default 8765)
   VIEWER_HOST   (default 127.0.0.1)
-  VIEWER_RESULTS_GLOBS  optional colon-separated directories under the repo root to scan
-      (each must exist), e.g. "experiments/encounter_battery/results"
-  If unset, uses experiments/encounter_battery/results only.
+  VIEWER_RESULTS_GLOBS  optional colon-separated directories under the repo root to scan.
+      If unset, scans **all of** ``experiments/`` (every sub-project with telemetry).
 """
 
 from __future__ import annotations
@@ -37,13 +40,13 @@ def _repo_root() -> Path:
 def _allowed_roots(repo: Path) -> list[Path]:
     raw = os.environ.get("VIEWER_RESULTS_GLOBS", "").strip()
     if not raw:
-        return [repo / "experiments" / "encounter_battery" / "results"]
+        return [repo / "experiments" ]
     roots: list[Path] = []
     for part in raw.split(":"):
         p = (repo / part.strip()).resolve()
         if p.is_dir():
             roots.append(p)
-    return roots if roots else [repo / "experiments" / "encounter_battery" / "results"]
+    return roots if roots else [repo / "experiments" ]
 
 
 def _is_under(path: Path, roots: list[Path]) -> bool:
@@ -55,6 +58,14 @@ def _is_under(path: Path, roots: list[Path]) -> bool:
         except ValueError:
             continue
     return False
+
+
+def _experiment_id(rel: Path) -> str:
+    """First directory under ``experiments/``, or first path component if not under experiments."""
+    parts = rel.parts
+    if len(parts) >= 2 and parts[0] == "experiments":
+        return parts[1]
+    return parts[0] if parts else "other"
 
 
 def _scan_runs(repo: Path, roots: list[Path]) -> list[dict]:
@@ -74,19 +85,42 @@ def _scan_runs(repo: Path, roots: list[Path]) -> list[dict]:
             seen.add(key)
             st = f.stat()
             parent = f.parent
+            exp_id = _experiment_id(rel)
+            label = str(parent.relative_to(base)).replace("\\", "/") if parent != base else parent.name
             out.append(
                 {
                     "telemetry_path": key,
+                    "experiment": exp_id,
                     "folder": str(parent.relative_to(repo)).replace("\\", "/"),
-                    "label": str(parent.relative_to(base)).replace("\\", "/")
-                    if parent != base
-                    else parent.name,
+                    "label": label,
                     "mtime": st.st_mtime,
                     "size_bytes": st.st_size,
                 }
             )
     out.sort(key=lambda x: -x["mtime"])
     return out
+
+
+def _group_by_experiment(repo: Path, runs: list[dict]) -> list[dict]:
+    """Stable groups sorted by experiment id; runs within each group by newest first."""
+    buckets: dict[str, list[dict]] = {}
+    for r in runs:
+        eid = r.get("experiment") or "other"
+        buckets.setdefault(eid, []).append(r)
+    groups: list[dict] = []
+    for eid in sorted(buckets.keys()):
+        br = buckets[eid]
+        br.sort(key=lambda x: -x["mtime"])
+        exp_path = str(Path("experiments") / eid).replace("\\", "/")
+        groups.append(
+            {
+                "id": eid,
+                "path": exp_path,
+                "run_count": len(br),
+                "runs": br,
+            }
+        )
+    return groups
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -121,7 +155,15 @@ class Handler(SimpleHTTPRequestHandler):
 
         if path_only == "/api/runs":
             runs = _scan_runs(self.repo, self.allowed_roots)
-            self._send_json({"repo_root": str(self.repo), "runs": runs})
+            experiments = _group_by_experiment(self.repo, runs)
+            self._send_json(
+                {
+                    "repo_root": str(self.repo),
+                    "runs": runs,
+                    "experiments": experiments,
+                    "experiment_count": len(experiments),
+                }
+            )
             return
 
         if path_only == "/api/telemetry":
@@ -188,9 +230,9 @@ def main() -> None:
     httpd = HTTPServer((host, port), Handler)
     roots = [str(r.relative_to(repo)) for r in Handler.allowed_roots if r.is_dir()]
     print(f"Repo: {repo}")
-    print(f"Scanning: {roots or '(none — create experiments/encounter_battery/results)'}")
+    print(f"Scanning: {roots or '(none — create experiments/)'}")
     print(f"Viewer: http://{host}:{port}/")
-    print("API: GET /api/runs  |  GET /api/telemetry?path=<repo-relative>")
+    print("API: GET /api/runs (grouped by experiments/)  |  GET /api/telemetry?path=<repo-relative>")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

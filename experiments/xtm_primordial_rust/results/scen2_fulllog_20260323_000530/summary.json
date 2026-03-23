@@ -1,0 +1,73 @@
+{
+  "meta": {
+    "scenario": "2",
+    "duration_s": 90.0,
+    "num_drones": 10,
+    "seed": 42,
+    "physics_hz": 1.0,
+    "log_level": "full",
+    "log_interval_s": 2.0,
+    "genome_path": "/home/suporte/Conceptio_Services/Rust_models/experiments/daidalus_ga/best_genome.json",
+    "output_dir": "/home/suporte/Conceptio_Services/Rust_models/experiments/xtm_primordial_rust/results/scen2_fulllog_20260323_000530"
+  },
+  "runs": [
+    {
+      "tag": "scen2_n10_s42_no_daidalus_fulllog",
+      "mode": "no_daidalus",
+      "rc": 0,
+      "work_dir": "/home/suporte/Conceptio_Services/Rust_models/experiments/xtm_primordial_rust/results/scen2_fulllog_20260323_000530/no_daidalus",
+      "error": null,
+      "stderr_tail": "",
+      "has_telemetry": true,
+      "telemetry_bytes": 106893,
+      "sim_metrics": {
+        "completed_missions": 0,
+        "daa_alert_pairs": 0,
+        "incomplete_missions_by_reason": {
+          "active_cruise": 6,
+          "active_takeoff": 1,
+          "not_spawned": 367
+        },
+        "incomplete_missions_total": 374,
+        "macproxy_active_pairs": 0,
+        "macproxy_count": 0,
+        "mission_count_balance_ok": true,
+        "route_ideal_distance_mode": "chord",
+        "route_inefficiency_pct": 0.0,
+        "route_metrics_timing": "mission_complete",
+        "total_ideal_distance_m": 0.0,
+        "total_real_distance_m": 0.0,
+        "total_scheduled_missions": 374
+      }
+    },
+    {
+      "tag": "scen2_n10_s42_daidalus_fulllog",
+      "mode": "daidalus",
+      "rc": 0,
+      "work_dir": "/home/suporte/Conceptio_Services/Rust_models/experiments/xtm_primordial_rust/results/scen2_fulllog_20260323_000530/daidalus",
+      "error": null,
+      "stderr_tail": "",
+      "has_telemetry": true,
+      "telemetry_bytes": 106893,
+      "sim_metrics": {
+        "completed_missions": 0,
+        "daa_alert_pairs": 0,
+        "incomplete_missions_by_reason": {
+          "active_cruise": 6,
+          "active_takeoff": 1,
+          "not_spawned": 367
+        },
+        "incomplete_missions_total": 374,
+        "macproxy_active_pairs": 0,
+        "macproxy_count": 0,
+        "mission_count_balance_ok": true,
+        "route_ideal_distance_mode": "chord",
+        "route_inefficiency_pct": 0.0,
+        "route_metrics_timing": "mission_complete",
+        "total_ideal_distance_m": 0.0,
+        "total_real_distance_m": 0.0,
+        "total_scheduled_missions": 374
+      }
+    }
+  ]
+}

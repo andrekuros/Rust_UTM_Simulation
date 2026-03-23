@@ -1,0 +1,4 @@
+scenario=2 out=/home/suporte/Conceptio_Services/Rust_models/experiments/xtm_primordial_rust/results/scen2_fulllog_20260323_000534
+duration_s=28800.0 drones=50 log_interval_s=1.0 full telemetry
+  scen2_n50_s42_no_daidalus_fulllog rc=0 telemetry=181540590 B ok
+  scen2_n50_s42_daidalus_fulllog rc=0 telemetry=196477593 B ok
