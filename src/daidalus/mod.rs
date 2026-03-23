@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use cxx::UniquePtr;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
 #[cxx::bridge]
@@ -42,7 +42,28 @@ pub mod ffi {
             pos_b: &Vec3F,
             vel_b: &Vec3F,
         ) -> DaidalusResult;
+
+        fn evaluate_multi(
+            self: Pin<&mut DaidalusWrapper>,
+            pos_o: &Vec3F,
+            vel_o: &Vec3F,
+            traffic_pos: &[Vec3F],
+            traffic_vel: &[Vec3F],
+        ) -> DaidalusResult;
     }
+}
+
+/// How pairwise DAIDALUS evaluations are aggregated for each ownship.
+#[derive(
+    Resource, Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum DaaIntruderEvalMode {
+    /// One C++ solve per intruder (legacy); reactive layer picks max `alert_level`.
+    #[default]
+    Pairwise,
+    /// One C++ solve per ownship with all nearby intruders as traffic; combined bands/alerts.
+    Multi,
 }
 
 /// Runtime tuning for DAIDALUS C++ core + Rust reactive layer (from `sim_config.json`).
@@ -74,6 +95,10 @@ pub struct DaidalusTuneConfig {
     /// can complete landing instead of orbiting with a partner at the same hub. `0` = disable.
     #[serde(default = "default_final_approach_no_reactive_radius_m")]
     pub final_approach_no_reactive_radius_m: f32,
+    /// `pairwise` = one DAIDALUS solve per neighbor; `multi` = one solve per ownship with all
+    /// intruders in range (combined horizontal bands via `alertLevelAllTraffic`).
+    #[serde(default)]
+    pub daa_intruder_eval_mode: DaaIntruderEvalMode,
 }
 
 fn default_final_approach_no_reactive_radius_m() -> f32 {
@@ -93,6 +118,7 @@ impl Default for DaidalusTuneConfig {
             cpp_horizontal_nmac_m: 0.0,
             max_cross_track_m: 350.0,
             final_approach_no_reactive_radius_m: 120.0,
+            daa_intruder_eval_mode: DaaIntruderEvalMode::Pairwise,
         }
     }
 }
@@ -375,12 +401,15 @@ fn legacy_geom_alerts(
     alerts
 }
 
+const MAX_MULTI_INTRUDERS: usize = 32;
+
 fn run_daidalus_evaluation(
     agents: &[(String, Vec3, Vec3)],
     metadata: &crate::ScenarioMetadata,
     threshold: f32,
     cpp_tune: &ffi::DaidalusCppTune,
     landing_ignore: &LandingCollisionIgnoreConfig,
+    eval_mode: DaaIntruderEvalMode,
 ) -> Vec<CollisionAlert> {
     let mut bridge = DaidalusBridge::new_with_cpp_tune(cpp_tune);
     let cell_size = 250.0_f32;
@@ -427,10 +456,11 @@ fn run_daidalus_evaluation(
         }
     }
 
-    let mut alerts = Vec::new();
+    let mut seen_pairs: HashSet<(usize, usize)> = HashSet::new();
+    let mut valid_pairs: Vec<(usize, usize)> = Vec::new();
     for (idx_a, idx_b) in pairs {
-        let (id_a, pos_a, vel_a) = &agents[idx_a];
-        let (id_b, pos_b, vel_b) = &agents[idx_b];
+        let (_, pos_a, _) = &agents[idx_a];
+        let (_, pos_b, _) = &agents[idx_b];
 
         if landing_collision_pair_ignored(metadata, *pos_a, *pos_b, landing_ignore) {
             continue;
@@ -441,78 +471,172 @@ fn run_daidalus_evaluation(
             continue;
         }
 
-        let res_a = bridge.inner.pin_mut().evaluate_pair(
-            &ffi::Vec3F {
-                x: pos_a.x,
-                y: pos_a.y,
-                z: pos_a.z,
-            },
-            &ffi::Vec3F {
-                x: vel_a.x,
-                y: vel_a.y,
-                z: vel_a.z,
-            },
-            &ffi::Vec3F {
-                x: pos_b.x,
-                y: pos_b.y,
-                z: pos_b.z,
-            },
-            &ffi::Vec3F {
-                x: vel_b.x,
-                y: vel_b.y,
-                z: vel_b.z,
-            },
-        );
+        let key = if idx_a < idx_b {
+            (idx_a, idx_b)
+        } else {
+            (idx_b, idx_a)
+        };
+        if !seen_pairs.insert(key) {
+            continue;
+        }
+        valid_pairs.push(key);
+    }
 
-        let res_b = bridge.inner.pin_mut().evaluate_pair(
-            &ffi::Vec3F {
-                x: pos_b.x,
-                y: pos_b.y,
-                z: pos_b.z,
-            },
-            &ffi::Vec3F {
-                x: vel_b.x,
-                y: vel_b.y,
-                z: vel_b.z,
-            },
-            &ffi::Vec3F {
-                x: pos_a.x,
-                y: pos_a.y,
-                z: pos_a.z,
-            },
-            &ffi::Vec3F {
-                x: vel_a.x,
-                y: vel_a.y,
-                z: vel_a.z,
-            },
-        );
+    let mut alerts = Vec::new();
 
-        // DAIDALUS can alert one ownship and not the other for the same geometry. Emit *both*
-        // perspectives whenever the pair is active, so reactive steering is not one-sided when
-        // `dist` is above `collision_threshold` but still inside the pair envelope.
-        let pair_active =
-            res_a.alert_level > 0 || res_b.alert_level > 0 || dist < threshold;
-        if pair_active {
-            alerts.push(CollisionAlert {
-                drone_a: id_a.clone(),
-                drone_b: id_b.clone(),
-                ownship_id: id_a.clone(),
-                distance: dist,
-                alert_level: res_a.alert_level,
-                time_to_violation: res_a.time_to_violation,
-                min_safe_heading: res_a.min_safe_heading,
-                max_safe_heading: res_a.max_safe_heading,
-            });
-            alerts.push(CollisionAlert {
-                drone_a: id_a.clone(),
-                drone_b: id_b.clone(),
-                ownship_id: id_b.clone(),
-                distance: dist,
-                alert_level: res_b.alert_level,
-                time_to_violation: res_b.time_to_violation,
-                min_safe_heading: res_b.min_safe_heading,
-                max_safe_heading: res_b.max_safe_heading,
-            });
+    match eval_mode {
+        DaaIntruderEvalMode::Pairwise => {
+            for (idx_a, idx_b) in valid_pairs {
+                let (id_a, pos_a, vel_a) = &agents[idx_a];
+                let (id_b, pos_b, vel_b) = &agents[idx_b];
+                let dist = pos_a.distance(*pos_b);
+
+                let res_a = bridge.inner.pin_mut().evaluate_pair(
+                    &ffi::Vec3F {
+                        x: pos_a.x,
+                        y: pos_a.y,
+                        z: pos_a.z,
+                    },
+                    &ffi::Vec3F {
+                        x: vel_a.x,
+                        y: vel_a.y,
+                        z: vel_a.z,
+                    },
+                    &ffi::Vec3F {
+                        x: pos_b.x,
+                        y: pos_b.y,
+                        z: pos_b.z,
+                    },
+                    &ffi::Vec3F {
+                        x: vel_b.x,
+                        y: vel_b.y,
+                        z: vel_b.z,
+                    },
+                );
+
+                let res_b = bridge.inner.pin_mut().evaluate_pair(
+                    &ffi::Vec3F {
+                        x: pos_b.x,
+                        y: pos_b.y,
+                        z: pos_b.z,
+                    },
+                    &ffi::Vec3F {
+                        x: vel_b.x,
+                        y: vel_b.y,
+                        z: vel_b.z,
+                    },
+                    &ffi::Vec3F {
+                        x: pos_a.x,
+                        y: pos_a.y,
+                        z: pos_a.z,
+                    },
+                    &ffi::Vec3F {
+                        x: vel_a.x,
+                        y: vel_a.y,
+                        z: vel_a.z,
+                    },
+                );
+
+                // DAIDALUS can alert one ownship and not the other for the same geometry. Emit *both*
+                // perspectives whenever the pair is active, so reactive steering is not one-sided when
+                // `dist` is above `collision_threshold` but still inside the pair envelope.
+                let pair_active =
+                    res_a.alert_level > 0 || res_b.alert_level > 0 || dist < threshold;
+                if pair_active {
+                    alerts.push(CollisionAlert {
+                        drone_a: id_a.clone(),
+                        drone_b: id_b.clone(),
+                        ownship_id: id_a.clone(),
+                        distance: dist,
+                        alert_level: res_a.alert_level,
+                        time_to_violation: res_a.time_to_violation,
+                        min_safe_heading: res_a.min_safe_heading,
+                        max_safe_heading: res_a.max_safe_heading,
+                    });
+                    alerts.push(CollisionAlert {
+                        drone_a: id_a.clone(),
+                        drone_b: id_b.clone(),
+                        ownship_id: id_b.clone(),
+                        distance: dist,
+                        alert_level: res_b.alert_level,
+                        time_to_violation: res_b.time_to_violation,
+                        min_safe_heading: res_b.min_safe_heading,
+                        max_safe_heading: res_b.max_safe_heading,
+                    });
+                }
+            }
+        }
+        DaaIntruderEvalMode::Multi => {
+            let n = agents.len();
+            let mut neigh: Vec<Vec<usize>> = vec![Vec::new(); n];
+            for &(idx_a, idx_b) in &valid_pairs {
+                neigh[idx_a].push(idx_b);
+                neigh[idx_b].push(idx_a);
+            }
+
+            for i in 0..n {
+                if neigh[i].is_empty() {
+                    continue;
+                }
+                let (id_i, pos_i, vel_i) = &agents[i];
+                let mut js: Vec<usize> = std::mem::take(&mut neigh[i]);
+                js.sort_by(|&a, &b| {
+                    let da = pos_i.distance(agents[a].1);
+                    let db = pos_i.distance(agents[b].1);
+                    da.partial_cmp(&db).unwrap_or(std::cmp::Ordering::Equal)
+                });
+                js.truncate(MAX_MULTI_INTRUDERS);
+                let mut traffic_pos: Vec<ffi::Vec3F> = Vec::with_capacity(js.len());
+                let mut traffic_vel: Vec<ffi::Vec3F> = Vec::with_capacity(js.len());
+                for &j in &js {
+                    let (_, p, v) = &agents[j];
+                    traffic_pos.push(ffi::Vec3F {
+                        x: p.x,
+                        y: p.y,
+                        z: p.z,
+                    });
+                    traffic_vel.push(ffi::Vec3F {
+                        x: v.x,
+                        y: v.y,
+                        z: v.z,
+                    });
+                }
+
+                let res = bridge.inner.pin_mut().evaluate_multi(
+                    &ffi::Vec3F {
+                        x: pos_i.x,
+                        y: pos_i.y,
+                        z: pos_i.z,
+                    },
+                    &ffi::Vec3F {
+                        x: vel_i.x,
+                        y: vel_i.y,
+                        z: vel_i.z,
+                    },
+                    &traffic_pos,
+                    &traffic_vel,
+                );
+
+                let closest_j = js[0];
+                let closest_dist = pos_i.distance(agents[closest_j].1);
+                let id_closest = agents[closest_j].0.clone();
+                let any_close = js
+                    .iter()
+                    .any(|&j| pos_i.distance(agents[j].1) < threshold);
+                let pair_active = res.alert_level > 0 || any_close;
+                if pair_active {
+                    alerts.push(CollisionAlert {
+                        drone_a: id_i.clone(),
+                        drone_b: id_closest,
+                        ownship_id: id_i.clone(),
+                        distance: closest_dist,
+                        alert_level: res.alert_level,
+                        time_to_violation: res.time_to_violation,
+                        min_safe_heading: res.min_safe_heading,
+                        max_safe_heading: res.max_safe_heading,
+                    });
+                }
+            }
         }
     }
 
@@ -566,6 +690,7 @@ fn daa_monitoring_system(
                 threshold,
                 &cpp,
                 &landing_ignore,
+                daidalus_tune.daa_intruder_eval_mode,
             );
         }
         crate::AvoidanceMode::Python2 => {
@@ -710,6 +835,7 @@ fn reactive_avoidance_system(
         &mut crate::agents::ReactiveAvoidance,
         &crate::agents::FlightPlan,
         &crate::agents::FlightState,
+        &crate::agents::Velocity,
     )>,
 ) {
     let mode = reactive_cfg
@@ -727,7 +853,7 @@ fn reactive_avoidance_system(
     ) {
         let agents: Vec<(String, Vec3)> = query
             .iter()
-            .map(|(d, t, _, _, _)| (d.id.clone(), t.translation))
+            .map(|(d, t, _, _, _, _)| (d.id.clone(), t.translation))
             .collect();
 
         let (daa_h, daa_v, evade_s) = match mode {
@@ -736,7 +862,7 @@ fn reactive_avoidance_system(
             _ => unreachable!(),
         };
 
-        for (drone, transform, mut avoidance, plan, _state) in query.iter_mut() {
+        for (drone, transform, mut avoidance, plan, _state, _vel) in query.iter_mut() {
             let pos = transform.translation;
             if pos.y < 5.0 {
                 continue;
@@ -774,7 +900,12 @@ fn reactive_avoidance_system(
     }
 
     let tune = *daidalus_tune;
-    for (drone, transform, mut avoidance, plan, _state) in query.iter_mut() {
+    let positions: HashMap<String, Vec3> = query
+        .iter()
+        .map(|(d, t, _, _, _, _)| (d.id.clone(), t.translation))
+        .collect();
+
+    for (drone, transform, mut avoidance, plan, _state, vel) in query.iter_mut() {
         let pos = transform.translation;
 
         // Avoid fighting the same landing point: disable lateral Daidalus targets only on the
@@ -829,12 +960,41 @@ fn reactive_avoidance_system(
                 crate::AvoidanceMode::Daidalus => {
                     // Horizontal-only offset (legacy fallback had Y≠0 and caused runaway climb).
                     if alert.min_safe_heading == 0.0 && alert.max_safe_heading == 0.0 {
-                        Vec3::new(1.0, 0.0, 1.0).normalize() * tune.evasion_offset_m
+                        // C++ leaves bands at 0 when alert_level==0; we still emit pairs for
+                        // dist < collision_threshold. Same world-space (1,0,1) for both aircraft
+                        // does not separate them — step horizontally **away from the intruder**.
+                        let other_id = if alert.drone_a == drone.id {
+                            alert.drone_b.as_str()
+                        } else {
+                            alert.drone_a.as_str()
+                        };
+                        let away = positions
+                            .get(other_id)
+                            .map(|op| {
+                                let mut v = pos - *op;
+                                v.y = 0.0;
+                                v
+                            })
+                            .unwrap_or(Vec3::ZERO);
+                        if away.length_squared() > 4.0 {
+                            away.normalize() * tune.evasion_offset_m
+                        } else {
+                            let mut v = vel.0;
+                            v.y = 0.0;
+                            if v.length_squared() > 1e-2 {
+                                Vec3::new(-v.z, 0.0, v.x).normalize() * tune.evasion_offset_m
+                            } else {
+                                Vec3::new(1.0, 0.0, 1.0).normalize() * tune.evasion_offset_m
+                            }
+                        }
                     } else {
                         let b = tune.heading_blend.clamp(0.0, 1.0);
                         let lo = alert.min_safe_heading;
                         let hi = alert.max_safe_heading;
-                        let mid = (lo + hi) * 0.5;
+                        // Circular midpoint of the safe arc (arithmetic mean breaks near ±π wrap).
+                        let s = lo.sin() + hi.sin();
+                        let c = lo.cos() + hi.cos();
+                        let mid = s.atan2(c);
                         let h = lo * (1.0 - b) + mid * b;
                         let dir_safe = Vec3::new(h.sin(), 0.0, -h.cos());
                         let wp = plan
@@ -854,7 +1014,22 @@ fn reactive_avoidance_system(
                         // but no visible lateral maneuver). Tighten blend when close; if still
                         // collinear with route, force a horizontal sidestep toward dir_safe.
                         let m_base = tune.track_mix.clamp(0.0, 1.0);
-                        let m = m_base * (alert.distance / 220.0_f32).clamp(0.0, 1.0);
+                        let m_dist = (alert.distance / 220.0_f32).clamp(0.0, 1.0);
+                        // Previous: large distance → large m → strong pull toward waypoint even when
+                        // that leg crosses the intruder (jagged last-second turns). Cap route blend
+                        // when alerts are serious or geometry is already tight.
+                        let severity = if alert.alert_level >= 3 {
+                            0.1
+                        } else if alert.alert_level >= 2 {
+                            0.22
+                        } else if alert.alert_level >= 1 {
+                            0.45
+                        } else if alert.distance < 85.0 {
+                            0.55
+                        } else {
+                            1.0
+                        };
+                        let m = m_base * m_dist * severity;
                         let blended = dir_safe * (1.0 - m) + dir_wp * m;
                         let mut dir = if blended.length_squared() < 1e-6 {
                             dir_safe

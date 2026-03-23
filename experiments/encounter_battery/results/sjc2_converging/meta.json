@@ -1,8 +1,0 @@
-{
-  "case": "sjc2_converging",
-  "description": "Same geometry as converging; PERF_SJC.",
-  "duration_s": 150.0,
-  "default_duration_s": 150.0,
-  "genome_source": "/home/suporte/Conceptio_Services/Rust_models/experiments/daidalus_ga/best_genome.json",
-  "returncode": 0
-}

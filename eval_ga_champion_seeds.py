@@ -29,6 +29,8 @@ def apply_genome(cfg_base: dict, genome: dict, duration: float) -> dict:
     sim["duration"] = float(duration)
     sim["show_progress_bar"] = False
     sim["daa_interval_s"] = float(genome["daa_interval_s"])
+    _dm = str(genome.get("daa_intruder_eval_mode", "pairwise")).strip().lower()
+    daa_mode = _dm if _dm in ("pairwise", "multi") else "pairwise"
     sim["daidalus_tune"] = {
         "evasion_offset_m": float(genome["evasion_offset_m"]),
         "evasion_duration_s": float(genome["evasion_duration_s"]),
@@ -38,6 +40,7 @@ def apply_genome(cfg_base: dict, genome: dict, duration: float) -> dict:
         "cpp_distance_filter_m": float(genome["cpp_distance_filter_m"]),
         "cpp_lookahead_s": float(genome["cpp_lookahead_s"]),
         "cpp_horizontal_nmac_m": float(genome["cpp_horizontal_nmac_m"]),
+        "daa_intruder_eval_mode": daa_mode,
     }
     return cfg
 

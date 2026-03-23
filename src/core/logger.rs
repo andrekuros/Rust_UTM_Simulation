@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use serde::Serialize;
+use serde_json::json;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::sync::Mutex;
@@ -131,6 +132,7 @@ impl Default for LogTimer {
 
 fn init_logging(
     metadata: Res<crate::ScenarioMetadata>,
+    tune: Res<crate::daidalus::DaidalusTuneConfig>,
     cfg: Res<LoggerConfig>,
     mut timer: ResMut<LogTimer>,
 ) {
@@ -144,7 +146,23 @@ fn init_logging(
 
     if let Ok(file) = File::create("simulation_telemetry.ndjson") {
         let mut writer = BufWriter::with_capacity(256 * 1024, file);
-        let meta_json = serde_json::json!({ "metadata": (*metadata).clone() });
+        let mut meta_obj = match serde_json::to_value(&*metadata) {
+            Ok(serde_json::Value::Object(m)) => m,
+            Ok(_) => serde_json::Map::new(),
+            Err(_) => serde_json::Map::new(),
+        };
+        let daa_mode = match tune.daa_intruder_eval_mode {
+            crate::daidalus::DaaIntruderEvalMode::Pairwise => "pairwise",
+            crate::daidalus::DaaIntruderEvalMode::Multi => "multi",
+        };
+        meta_obj.insert(
+            "daidalus_tune".to_string(),
+            json!({
+                "heading_blend": tune.heading_blend,
+                "daa_intruder_eval_mode": daa_mode,
+            }),
+        );
+        let meta_json = json!({ "metadata": serde_json::Value::Object(meta_obj) });
         if let Ok(json) = serde_json::to_string(&meta_json) {
             let _ = writeln!(writer, "{}", json);
         }

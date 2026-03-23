@@ -94,6 +94,8 @@ def apply_genome(cfg_base: dict, genome: dict, duration: float) -> dict:
             )
         ),
     }
+    _dm = str(genome.get("daa_intruder_eval_mode", "pairwise")).strip().lower()
+    tune["daa_intruder_eval_mode"] = _dm if _dm in ("pairwise", "multi") else "pairwise"
     sim["daidalus_tune"] = tune
     sim.setdefault("route_ideal_distance_mode", "chord")
     sim.setdefault("route_metrics_timing", "mission_complete")

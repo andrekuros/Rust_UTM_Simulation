@@ -1,8 +1,0 @@
-{
-  "case": "sjc_perpendicular_2",
-  "description": "Two missions, SJC waypoint chain; classic cross (meet en route after climb).",
-  "duration_s": 320.0,
-  "default_duration_s": 150.0,
-  "genome_source": "/home/suporte/Conceptio_Services/Rust_models/experiments/daidalus_ga/best_genome.json",
-  "returncode": 0
-}

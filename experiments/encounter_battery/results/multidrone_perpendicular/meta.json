@@ -1,0 +1,8 @@
+{
+  "case": "multidrone_perpendicular",
+  "description": "Ownship O along +X at z=0; B and C each along \u00b1Z at x=-150 and x=150 \u2014 two perpendicular crossings on one cruise leg.",
+  "duration_s": 150.0,
+  "default_duration_s": 150.0,
+  "genome_source": "W:\\GitHub\\Rust_UTM_Simulation\\experiments\\daidalus_ga\\best_genome.json",
+  "returncode": 0
+}

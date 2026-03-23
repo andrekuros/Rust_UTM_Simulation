@@ -1,17 +1,32 @@
 {
   "created_utc": "20260322_180945",
   "best_J": 21.47813623876042,
+  "parameter_descriptions": {
+    "evasion_offset_m": "Horizontal distance (m) from ownship to the virtual waypoint used for reactive avoidance when a DAIDALUS NONE heading band is available.",
+    "evasion_duration_s": "Minimum time (s) before the reactive virtual target may be recomputed; reduces steering chatter.",
+    "heading_blend": "Interpolates between the lower edge of the NONE band (0) and its circular midpoint (1) to pick the blended safe heading.",
+    "track_mix": "Weight (0..1) to mix the DAIDALUS safe horizontal direction with the bearing to the next route waypoint; higher favors staying on the mission leg.",
+    "cpp_distance_filter_m": "Passed to NASA DAIDALUS C++ setDistanceFilter (m). Traffic beyond this range may be ignored. Use 0 for library default (no artificial cap).",
+    "cpp_lookahead_s": "Passed to setLookaheadTime (s). Horizons for conflict detection; use 0 for library default.",
+    "cpp_horizontal_nmac_m": "Passed to setHorizontalNMAC (m). Near-miss horizontal threshold in the C++ core; use 0 for library default.",
+    "daa_interval_s": "Wall-clock period (s) between full pairwise DAIDALUS evaluations in the simulator; lower is more responsive but more CPU.",
+    "min_alert_level": "Reactive steering engages only when DAIDALUS alert level for the intruder is at least this (1=corrective, 2=warning, 3=preventive per DO-365B-style scale).",
+    "max_cross_track_m": "After choosing an avoidance target, clamp it horizontally so it stays within this distance (m) of the active flight-plan leg in XZ; 0 disables clamping.",
+    "final_approach_no_reactive_radius_m": "On the last leg only: if horizontally within this radius (m) of the final waypoint, disable DAIDALUS reactive targets so drones can land instead of orbiting.",
+    "daa_intruder_eval_mode": "pairwise = one C++ DAIDALUS solve per neighbor pair (legacy); multi = one solve per ownship with up to 32 closest intruders as traffic (combined alertLevelAllTraffic and horizontal bands)."
+  },
   "best_genome": {
-    "evasion_offset_m": 169.04863788938653,
-    "evasion_duration_s": 3.9268197387606762,
-    "heading_blend": 0.3657597138442277,
-    "track_mix": 0.4382410466854978,
-    "cpp_distance_filter_m": 45.50758397943468,
-    "cpp_lookahead_s": 129.570639051947,
-    "cpp_horizontal_nmac_m": 29.025397559593664,
-    "daa_interval_s": 0.4915892917321246,
-    "min_alert_level": 2.0,
-    "max_cross_track_m": 438.74346715768974,
-    "final_approach_no_reactive_radius_m": 178.91405284545448
+    "evasion_offset_m": 300.0,
+    "evasion_duration_s": 3.0,
+    "heading_blend": 1.0,
+    "track_mix": 0.0,
+    "cpp_distance_filter_m": 300.0,
+    "cpp_lookahead_s": 300.0,
+    "cpp_horizontal_nmac_m": 1.0,
+    "daa_interval_s": 0.5,
+    "min_alert_level": 1.0,
+    "max_cross_track_m": 350.0,
+    "final_approach_no_reactive_radius_m": 100.0,
+    "daa_intruder_eval_mode": "multi"
   }
 }

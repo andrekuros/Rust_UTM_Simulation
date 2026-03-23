@@ -1,8 +1,0 @@
-{
-  "case": "center_busy_octet",
-  "description": "Eight aircraft: two perpendicular crossings (z=\u00b1220) plus two head-on pairs (z=\u00b180) \u2014 busiest fixed \u2018random-like\u2019 center mix.",
-  "duration_s": 150.0,
-  "default_duration_s": 150.0,
-  "genome_source": "/home/suporte/Conceptio_Services/Rust_models/experiments/daidalus_ga/best_genome.json",
-  "returncode": 0
-}

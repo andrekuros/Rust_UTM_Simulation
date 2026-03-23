@@ -1,8 +1,0 @@
-{
-  "case": "sjc_commuter_lane_6",
-  "description": "Six SJC missions along nearby parallel corridors with small offsets and 10 s stagger (queue-like en route).",
-  "duration_s": 420.0,
-  "default_duration_s": 150.0,
-  "genome_source": "/home/suporte/Conceptio_Services/Rust_models/experiments/daidalus_ga/best_genome.json",
-  "returncode": 0
-}

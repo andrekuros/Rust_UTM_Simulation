@@ -1,17 +1,26 @@
 #!/usr/bin/env python3
 """
 Run encounter cases with Daidalus + best_genome tunings (2-drone classics plus
-center-arena multi-drone layouts that mimic random-traffic density without long cruise legs).
+center-arena multi-drone layouts that mimic random-traffic density without long cruise legs,
+plus `multidrone_perpendicular` / `multidrone_oblique`: one ownship vs two intruders).
 
 Also includes **SJC-style** missions: full pad→climb→cruise→land chains like `sjc_scenario_gen`
 scenario 2, plus **`sjc2_*`** cases: **SJC speeds** with the same **two cruise waypoints** as the
 classic encounters (isolated geometry vs full-mission profile).
 
-Writes results/<case>/sim_metrics.json and run.log for each.
+Writes results/<case>/sim_metrics.json, run.log, simulation_telemetry.ndjson (log_level=full),
+and sim_config_used.json for each.
+
+Examples:
+  python experiments/encounter_battery/run_encounter_experiments.py \\
+    --cases head_on perpendicular converging --log-interval 0.5
+  python experiments/encounter_battery/run_encounter_experiments.py \\
+    --cases multidrone_perpendicular multidrone_oblique
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import shutil
@@ -20,7 +29,8 @@ import sys
 import tempfile
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-BIN = os.path.join(REPO, "target", "release", "hpm_utm_simulator")
+_BIN = os.path.join(REPO, "target", "release", "hpm_utm_simulator")
+BIN = _BIN + (".exe" if sys.platform == "win32" and not _BIN.endswith(".exe") else "")
 BEST_GENOME = os.path.join(REPO, "experiments", "daidalus_ga", "best_genome.json")
 OUT_BASE = os.path.join(REPO, "experiments", "encounter_battery", "results")
 
@@ -129,8 +139,8 @@ SCENARIOS: dict[str, dict] = {
     "sjc2_converging": {
         "description": "Same geometry as converging; PERF_SJC.",
         "drones": [
-            drone_sjc("A", [[-800.0, ALT, -800.0], [0.0, ALT, 0.0]]),
-            drone_sjc("B", [[800.0, ALT, -800.0], [0.0, ALT, 0.0]]),
+            drone_sjc("A", [[-800.0, ALT, -800.0], [100.0, ALT, 100.0]]),
+            drone_sjc("B", [[800.0, ALT, -800.0], [-100.0, ALT, 100.0]]),
         ],
     },
     "sjc2_acute_crossing": {
@@ -184,6 +194,24 @@ SCENARIOS: dict[str, dict] = {
             drone("H0_B", [[450.0, ALT, -80.0], [-450.0, ALT, -80.0]]),
             drone("H1_A", [[-450.0, ALT, 80.0], [450.0, ALT, 80.0]]),
             drone("H1_B", [[450.0, ALT, 80.0], [-450.0, ALT, 80.0]]),
+        ],
+    },
+    # --- One ownship vs two intruders (multi-intruder DAA); compact en-route ---------------
+    "multidrone_perpendicular": {
+        "description": "Ownship O along +X at z=0; B and C each along ±Z at x=-150 and x=150 — two perpendicular crossings on one cruise leg.",
+        "drones": [
+            drone("O", [[-750.0, ALT, 0.0], [750.0, ALT, 0.0]]),
+            drone("B", [[-150.0, ALT, -600.0], [-150.0, ALT, 600.0]]),
+            drone("C", [[-150.0, ALT, 600.0], [-150.0, ALT, -600.0]]),
+            drone("D", [[750.0, ALT, 0.0], [-750.0, ALT, 0.0]]),
+        ],
+    },
+    "multidrone_oblique": {
+        "description": "Ownship O along +X at z=0; B and C on ±60° tracks in XZ (same family as other_acute_crossing) — triple merge near origin.",
+        "drones": [
+            drone("O", [[-900.0, ALT, 0.0], [900.0, ALT, 0.0]]),
+            drone("B", [[-500.0, ALT, -866.0], [500.0, ALT, 866.0]]),
+            drone("C", [[-500.0, ALT, 866.0], [500.0, ALT, -866.0]]),
         ],
     },
     # --- SJC scenario-2 style: vertical legs + cruise waypoints at altitude ----------------
@@ -255,10 +283,21 @@ SCENARIOS: dict[str, dict] = {
 def load_genome() -> dict:
     with open(BEST_GENOME) as f:
         data = json.load(f)
-    return data["genome"]
+    g = data.get("best_genome") or data.get("genome")
+    if not isinstance(g, dict):
+        raise ValueError(f"{BEST_GENOME}: expected 'best_genome' or 'genome' object")
+    out = dict(g)
+    out["min_alert_level"] = int(round(float(out["min_alert_level"])))
+    return out
 
 
-def build_sim_config(genome: dict, duration_s: float) -> dict:
+def daa_intruder_eval_mode_from_genome(genome: dict) -> str:
+    """Rust `DaidalusTuneConfig::daa_intruder_eval_mode`: pairwise | multi."""
+    v = str(genome.get("daa_intruder_eval_mode", "pairwise")).strip().lower()
+    return v if v in ("pairwise", "multi") else "pairwise"
+
+
+def build_sim_config(genome: dict, duration_s: float, *, log_interval_s: float = 2.0) -> dict:
     return {
         "simulation": {
             "duration": float(duration_s),
@@ -268,7 +307,7 @@ def build_sim_config(genome: dict, duration_s: float) -> dict:
             "scenario_file": "config/scenario_dynamic.json",
             "enable_mqtt": False,
             "log_level": "full",
-            "log_interval_s": 2.0,
+            "log_interval_s": float(log_interval_s),
             "physics_hz": 10.0,
             "daa_interval_s": float(genome["daa_interval_s"]),
             "daidalus_tune": {
@@ -280,16 +319,35 @@ def build_sim_config(genome: dict, duration_s: float) -> dict:
                 "cpp_distance_filter_m": float(genome["cpp_distance_filter_m"]),
                 "cpp_lookahead_s": float(genome["cpp_lookahead_s"]),
                 "cpp_horizontal_nmac_m": float(genome["cpp_horizontal_nmac_m"]),
+                "max_cross_track_m": float(genome.get("max_cross_track_m", 350.0)),
+                "final_approach_no_reactive_radius_m": float(
+                    genome.get("final_approach_no_reactive_radius_m", 120.0)
+                ),
+                "daa_intruder_eval_mode": daa_intruder_eval_mode_from_genome(genome),
             },
             "route_ideal_distance_mode": "chord",
-            "route_metrics_timing": "mission_complete",
+            # `mission_complete` only folds ideal/real into sim_metrics when a drone lands and
+            # despawns; encounter cases stay at cruise until `duration` and never hit that path, so
+            # totals stayed 0. `spawn` credits chord ideal at spawn and integrates real path every
+            # tick (includes Daidalus lateral offsets).
+            "route_metrics_timing": "spawn",
         }
     }
 
 
-def run_case(name: str, genome: dict, default_duration_s: float = 150.0) -> int:
+def run_case(
+    name: str,
+    genome: dict,
+    default_duration_s: float = 150.0,
+    *,
+    log_interval_s: float = 2.0,
+    duration_override: float | None = None,
+) -> int:
     spec = SCENARIOS[name]
-    duration_s = float(spec.get("duration_s", default_duration_s))
+    if duration_override is not None:
+        duration_s = float(duration_override)
+    else:
+        duration_s = float(spec.get("duration_s", default_duration_s))
     scenario_data = {
         "drones": spec["drones"],
         "obstacles": [],
@@ -305,7 +363,11 @@ def run_case(name: str, genome: dict, default_duration_s: float = 150.0) -> int:
         with open(os.path.join(cfg_dir, "scenario_dynamic.json"), "w") as f:
             json.dump(scenario_data, f, indent=2)
         with open(os.path.join(cfg_dir, "sim_config.json"), "w") as f:
-            json.dump(build_sim_config(genome, duration_s), f, indent=2)
+            json.dump(
+                build_sim_config(genome, duration_s, log_interval_s=log_interval_s),
+                f,
+                indent=2,
+            )
 
         proc = subprocess.run(
             [BIN],
@@ -332,6 +394,10 @@ def run_case(name: str, genome: dict, default_duration_s: float = 150.0) -> int:
         if os.path.isfile(tel):
             shutil.copy2(tel, os.path.join(out_dir, "simulation_telemetry.ndjson"))
 
+        cfg_used = build_sim_config(genome, duration_s, log_interval_s=log_interval_s)
+        with open(os.path.join(out_dir, "sim_config_used.json"), "w") as f:
+            json.dump(cfg_used, f, indent=2)
+
         meta = {
             "case": name,
             "description": spec["description"],
@@ -349,21 +415,56 @@ def run_case(name: str, genome: dict, default_duration_s: float = 150.0) -> int:
 
 
 def main() -> None:
+    ap = argparse.ArgumentParser(description="Run encounter scenarios with Daidalus + best_genome.")
+    ap.add_argument(
+        "--cases",
+        nargs="+",
+        metavar="NAME",
+        help="Subset of scenario names (default: run all). Example: --cases head_on perpendicular converging",
+    )
+    ap.add_argument(
+        "--duration",
+        type=float,
+        default=None,
+        help="Override simulation duration (seconds) for every selected case",
+    )
+    ap.add_argument(
+        "--log-interval",
+        type=float,
+        default=2.0,
+        dest="log_interval",
+        help="NDJSON telemetry sample period for log_level=full (default 2.0 s; use 0.5 for smoother viewer)",
+    )
+    args = ap.parse_args()
+
     if not os.path.isfile(BIN):
         print(f"Build release binary first: {BIN}", file=sys.stderr)
         sys.exit(1)
     genome = load_genome()
     default_duration_s = 150.0
 
+    names = list(args.cases) if args.cases else list(SCENARIOS.keys())
+    unknown = [n for n in names if n not in SCENARIOS]
+    if unknown:
+        print(f"Unknown case(s): {unknown}. Valid: {', '.join(sorted(SCENARIOS))}", file=sys.stderr)
+        sys.exit(2)
+
     print("Genome from", BEST_GENOME)
     print("Default duration:", default_duration_s, "s (SJC-style cases override via scenario duration_s)")
-    print("Cases:", ", ".join(SCENARIOS.keys()))
+    print("Running:", ", ".join(names))
+    print("log_interval_s:", args.log_interval)
     print()
 
     rows = []
-    for name in SCENARIOS:
+    for name in names:
         print(f"=== {name} ===", flush=True)
-        rc = run_case(name, genome, default_duration_s)
+        rc = run_case(
+            name,
+            genome,
+            default_duration_s,
+            log_interval_s=args.log_interval,
+            duration_override=args.duration,
+        )
         out_dir = os.path.join(OUT_BASE, name)
         sm_path = os.path.join(out_dir, "sim_metrics.json")
         m: dict = {}

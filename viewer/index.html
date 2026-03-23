@@ -206,6 +206,10 @@
             <input type="checkbox" id="showSuggestions" checked>
             <label style="font-size: 0.8em;" for="showSuggestions">Show DAIDALUS Suggestions</label>
         </div>
+        <div style="display: flex; align-items: center; gap: 5px; margin-left: 10px;">
+            <input type="checkbox" id="showSafeBand" checked>
+            <label style="font-size: 0.8em;" for="showSafeBand" title="Horizontal NONE sector (transparent wedge)">DAIDALUS safe sector</label>
+        </div>
         <div style="display: flex; flex-direction: column; gap: 8px; margin-left: 10px; flex-grow: 1; min-width: 0;">
             <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                 <input type="checkbox" id="showRoutes" checked>
@@ -217,8 +221,8 @@
             </div>
             <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 0.78em; color: #ccc;">
                 <span title="Show only route data in a sliding sim-time window around the playhead">Time window (sim clock):</span>
-                <label>− <input type="number" id="routeWinBehindMin" value="3" min="0" step="0.5" style="width: 3.2em; background: #333; color: #fff; border: 1px solid #555;"> min</label>
-                <label>+ <input type="number" id="routeWinAheadMin" value="5" min="0" step="0.5" style="width: 3.2em; background: #333; color: #fff; border: 1px solid #555;"> min</label>
+                <label>− <input type="number" id="routeWinBehindMin" value="0.5" min="0" step="0.5" style="width: 3.2em; background: #333; color: #fff; border: 1px solid #555;"> min</label>
+                <label>+ <input type="number" id="routeWinAheadMin" value="0.5" min="0" step="0.5" style="width: 3.2em; background: #333; color: #fff; border: 1px solid #555;"> min</label>
                 <span title="Used to turn the time window into approximate along-path length for planned-route clipping">@</span>
                 <label><input type="number" id="routeAssumedSpeedMps" value="15" min="1" step="1" style="width: 3.5em; background: #333; color: #fff; border: 1px solid #555;"> m/s</label>
             </div>
@@ -1005,6 +1009,111 @@
             };
         }
 
+        /** DAIDALUS NONE-band midpoint on the circle (short arc between lo, hi). */
+        function circularMidHeadingRad(lo, hi) {
+            return Math.atan2(Math.sin(lo) + Math.sin(hi), Math.cos(lo) + Math.cos(hi));
+        }
+        /**
+         * Match Rust `reactive_avoidance_system`: blend lower band edge toward midpoint using heading_blend.
+         * Viewer metadata may not include tune; default 0.5 matches DaidalusTuneConfig::default.
+         */
+        function daidalusSuggestedHeadingRad(lo, hi, headingBlend) {
+            const b = headingBlend != null ? headingBlend : 0.5;
+            const mid = circularMidHeadingRad(lo, hi);
+            return lo * (1.0 - b) + mid * b;
+        }
+
+        const TAU = Math.PI * 2;
+
+        /** Heading `a` → horizontal direction matching Rust `(sin(a), 0, -cos(a))`. */
+        function headingToXZ(a, r) {
+            return [Math.sin(a) * r, -Math.cos(a) * r];
+        }
+
+        /**
+         * Annular sector in drone-local XZ (arc lo→hi), extruded in Y — transparent “cone slice” for DAIDALUS NONE band.
+         */
+        function buildDaaSafeSectorGeometry(lo, hi, innerR, outerR, halfH) {
+            let span = hi - lo;
+            while (span < 0) span += TAU;
+            while (span >= TAU) span -= TAU;
+            if (span < 1e-4 || span > TAU - 0.06) return null;
+            const n = Math.max(6, Math.min(56, Math.ceil(40 * span / Math.PI)));
+            const verts = [];
+            const indices = [];
+            const row = (n + 1) * 2;
+            function pushRing(y) {
+                for (let i = 0; i <= n; i++) {
+                    const t = lo + (span * i) / n;
+                    const [xi, zi] = headingToXZ(t, innerR);
+                    const [xo, zo] = headingToXZ(t, outerR);
+                    verts.push(xi, y, zi, xo, y, zo);
+                }
+            }
+            pushRing(-halfH);
+            pushRing(halfH);
+            function ix(layer, i, outer) {
+                return layer * row + i * 2 + (outer ? 1 : 0);
+            }
+            for (let i = 0; i < n; i++) {
+                const o0b = ix(0, i, 1), o1b = ix(0, i + 1, 1), o1t = ix(1, i + 1, 1), o0t = ix(1, i, 1);
+                indices.push(o0b, o1b, o1t, o0b, o1t, o0t);
+                const i0b = ix(0, i, 0), i1b = ix(0, i + 1, 0), i1t = ix(1, i + 1, 0), i0t = ix(1, i, 0);
+                indices.push(i1b, i0b, i0t, i1b, i0t, i1t);
+            }
+            const i0b = ix(0, 0, 0), o0b = ix(0, 0, 1), o0t = ix(1, 0, 1), i0t = ix(1, 0, 0);
+            indices.push(i0b, o0b, o0t, i0b, o0t, i0t);
+            const iNb = ix(0, n, 0), oNb = ix(0, n, 1), oNt = ix(1, n, 1), iNt = ix(1, n, 0);
+            indices.push(iNb, oNb, oNt, iNb, oNt, iNt);
+
+            const geom = new THREE.BufferGeometry();
+            geom.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+            geom.setIndex(indices);
+            geom.computeVertexNormals();
+            return geom;
+        }
+
+        function disposeSafeWedge(group) {
+            const m = group.getObjectByName('daa_safe_wedge');
+            if (m && m.geometry) {
+                m.geometry.dispose();
+                if (m.material) m.material.dispose();
+                group.remove(m);
+            }
+        }
+
+        function setOrUpdateSafeWedge(group, lo, hi) {
+            const show = document.getElementById('showSafeBand') && document.getElementById('showSafeBand').checked;
+            if (!show) {
+                disposeSafeWedge(group);
+                return;
+            }
+            const innerR = 12;
+            const outerR = 220;
+            const halfH = 14;
+            const key = lo.toFixed(4) + ':' + hi.toFixed(4);
+            let mesh = group.getObjectByName('daa_safe_wedge');
+            if (mesh && mesh.userData.arcKey === key) {
+                mesh.visible = true;
+                return;
+            }
+            disposeSafeWedge(group);
+            const geom = buildDaaSafeSectorGeometry(lo, hi, innerR, outerR, halfH);
+            if (!geom) return;
+            const mat = new THREE.MeshLambertMaterial({
+                color: 0x44ffaa,
+                transparent: true,
+                opacity: 0.22,
+                side: THREE.DoubleSide,
+                depthWrite: false,
+            });
+            mesh = new THREE.Mesh(geom, mat);
+            mesh.name = 'daa_safe_wedge';
+            mesh.renderOrder = 1;
+            mesh.userData.arcKey = key;
+            group.add(mesh);
+        }
+
         // --- 4. Render Logic ---
         function renderFrame(time) {
             updateExecutedRoutes(time);
@@ -1050,20 +1159,28 @@
                         bubble.material.color.setHSL(0.08 + 0.12 * factor, 1, 0.5); // orange family, not red
                     }
 
-                    // Look for resolution bands
-                    let bestAlert = state.alerts.find(a => (a.min_safe_heading !== 0 || a.max_safe_heading !== 0));
+                    // Prefer strongest alert that has a horizontal band (same blend as simulator reactive layer).
+                    const withBand = state.alerts.filter(a => (a.min_safe_heading !== 0 || a.max_safe_heading !== 0));
+                    const bestAlert = withBand.length === 0 ? null
+                        : withBand.reduce((a, b) => ((a.alert_level || 0) >= (b.alert_level || 0) ? a : b));
                     if (bestAlert && document.getElementById('showSuggestions').checked) {
                         resolutionLine.visible = true;
-                        let h = bestAlert.min_safe_heading;
+                        const hb = (metadata && metadata.daidalus_tune && metadata.daidalus_tune.heading_blend != null)
+                            ? metadata.daidalus_tune.heading_blend
+                            : null;
+                        const h = daidalusSuggestedHeadingRad(bestAlert.min_safe_heading, bestAlert.max_safe_heading, hb);
                         let dir = new THREE.Vector3(Math.sin(h), 0, -Math.cos(h)).normalize();
                         resolutionLine.setDirection(dir);
                         resolutionLine.setColor(0x00ff00);
+                        setOrUpdateSafeWedge(group, bestAlert.min_safe_heading, bestAlert.max_safe_heading);
                     } else {
                         resolutionLine.visible = false;
+                        disposeSafeWedge(group);
                     }
                 } else {
                     bubble.visible = false;
                     resolutionLine.visible = false;
+                    disposeSafeWedge(group);
                 }
 
                 group.children.forEach(c => {
@@ -1098,6 +1215,8 @@
         document.getElementById('showRoutes').addEventListener('change', onRouteOptionChange);
         document.getElementById('showPlanned').addEventListener('change', onRouteOptionChange);
         document.getElementById('showExecuted').addEventListener('change', onRouteOptionChange);
+        document.getElementById('showSuggestions').addEventListener('change', () => renderFrame(currentTime));
+        document.getElementById('showSafeBand').addEventListener('change', () => renderFrame(currentTime));
         ['routeWinBehindMin', 'routeWinAheadMin', 'routeAssumedSpeedMps'].forEach(id => {
             const el = document.getElementById(id);
             el.addEventListener('change', onRouteOptionChange);

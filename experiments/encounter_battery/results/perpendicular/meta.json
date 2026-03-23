@@ -1,8 +1,0 @@
-{
-  "case": "perpendicular",
-  "description": "Classic cross: A along +X, B along +Z (intersection near origin).",
-  "duration_s": 150.0,
-  "default_duration_s": 150.0,
-  "genome_source": "/home/suporte/Conceptio_Services/Rust_models/experiments/daidalus_ga/best_genome.json",
-  "returncode": 0
-}

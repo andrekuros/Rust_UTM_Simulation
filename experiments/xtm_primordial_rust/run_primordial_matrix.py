@@ -39,7 +39,8 @@ if _ENC not in sys.path:
     sys.path.insert(0, _ENC)
 from daidalus_sim_config_shared import build_daidalus_sim_config  # noqa: E402
 
-BIN = os.path.join(REPO, "target", "release", "hpm_utm_simulator")
+_BIN = os.path.join(REPO, "target", "release", "hpm_utm_simulator")
+BIN = _BIN + (".exe" if sys.platform == "win32" and not _BIN.endswith(".exe") else "")
 SJC_GEN = os.path.join(REPO, "sjc_scenario_gen.py")
 SCENARIOS = ("1", "2", "3", "4a", "4b")
 MODES = ("no_daidalus", "daidalus")
@@ -402,7 +403,113 @@ def main() -> int:
         f.write(report_md)
     print("\n" + report_md, flush=True)
     print(f"\nWrote {out_base}/analysis_summary.json and REPORT.md", flush=True)
+
+    final_md = _build_final_analysis_md(meta, analysis, results)
+    with open(os.path.join(out_base, "FINAL_ANALYSIS.md"), "w", encoding="utf-8") as f:
+        f.write(final_md)
+    print(f"Wrote {out_base}/FINAL_ANALYSIS.md", flush=True)
     return 0 if all(r.get("rc") == 0 for r in results) else 2
+
+
+def _build_final_analysis_md(meta: dict, analysis: dict, results: list[dict]) -> str:
+    """Narrative summary for overnight runs (paired with analysis_summary.json)."""
+    lines: list[str] = [
+        "# Primordial matrix — final analysis (Daidalus vs baseline)",
+        "",
+        "## Run configuration",
+        "",
+        f"- **UTC stamp**: `{meta.get('created_utc')}`",
+        f"- **Simulation duration (s)**: {meta.get('duration_s')}",
+        f"- **Drones**: {meta.get('num_drones')}, **seed**: {meta.get('seed')}",
+        f"- **physics_hz**: {meta.get('physics_hz')}",
+        f"- **Parallel workers**: {meta.get('workers')}",
+        f"- **Genome**: `{meta.get('genome_path')}` (includes `daidalus_tune`, e.g. `daa_intruder_eval_mode`).",
+        f"- **Daidalus arm**: `build_daidalus_sim_config` with **cpp_distance_filter_m = 0** (wide-area traffic).",
+        f"- **Baseline arm**: avoidance from `sjc_scenario_gen` only; `log_level: metrics`.",
+        "",
+        "## Job outcomes",
+        "",
+    ]
+    ok = sum(1 for r in results if r.get("rc") == 0 and not r.get("error"))
+    bad = [r for r in results if r.get("rc") != 0 or r.get("error")]
+    lines.append(f"- **Succeeded**: {ok} / {len(results)}")
+    if bad:
+        lines.append("- **Failed or errors**:")
+        for r in bad:
+            lines.append(
+                f"  - `{r.get('tag')}`: rc={r.get('rc')}, {r.get('error') or 'no error string'}"
+            )
+    else:
+        lines.append("- All subprocesses exited 0.")
+    lines.extend(["", "## Scenario-by-scenario comparison", ""])
+
+    for c in analysis.get("comparisons") or []:
+        if c.get("error"):
+            lines.append(f"### Scenario {c.get('scenario')} — **incomplete** ({c.get('error')})")
+            lines.append("")
+            continue
+        s = c.get("scenario")
+        ref = c.get("python_reference") or ""
+        nd = c.get("no_daidalus") or {}
+        da = c.get("daidalus") or {}
+        d = c.get("delta_daidalus_minus_baseline") or {}
+        lines.append(f"### Scenario {s}")
+        lines.append(f"*{ref}*")
+        lines.append("")
+        lines.append("| Metric | Baseline (no NASA DAIDALUS) | + Daidalus (Rust) | Δ (Daidalus − baseline) |")
+        lines.append("|--------|-----------------------------|---------------------|-------------------------|")
+        lines.append(
+            f"| MACproxy count | {nd.get('macproxy_count')} | {da.get('macproxy_count')} | **{d.get('macproxy_count')}** |"
+        )
+        lines.append(
+            f"| Route inefficiency % | {nd.get('route_inefficiency_pct')} | {da.get('route_inefficiency_pct')} | **{d.get('route_inefficiency_pct')}** |"
+        )
+        lines.append(
+            f"| Completed missions | {nd.get('completed_missions')} | {da.get('completed_missions')} | **{d.get('completed_missions')}** |"
+        )
+        lines.append(
+            f"| DAA alert pairs (Rust metric) | {nd.get('daa_alert_pairs')} | {da.get('daa_alert_pairs')} | **{d.get('daa_alert_pairs')}** |"
+        )
+        lines.append("")
+
+        mac_d = _num(d.get("macproxy_count"))
+        ineff_d = _num(d.get("route_inefficiency_pct"))
+        done_d = _num(d.get("completed_missions"))
+        blurb: list[str] = []
+        if mac_d < 0:
+            blurb.append("MACproxy **decreased** with Daidalus (fewer near-NMAC proximity events).")
+        elif mac_d > 0:
+            blurb.append(
+                "MACproxy **increased** with Daidalus — can indicate more conservative separation "
+                "detection or different trajectories; interpret with inefficiency and completions."
+            )
+        else:
+            blurb.append("MACproxy unchanged.")
+        if ineff_d > 0:
+            blurb.append("Route inefficiency **rose** (more path length vs chord ideal, often from lateral avoidance).")
+        elif ineff_d < 0:
+            blurb.append("Route inefficiency **fell**.")
+        if done_d < 0:
+            blurb.append("**Fewer** missions completed within the horizon (possible delays or timeouts).")
+        elif done_d > 0:
+            blurb.append("**More** missions completed.")
+        lines.append("**Interpretation:** " + " ".join(blurb))
+        lines.append("")
+
+    lines.extend(
+        [
+            "## Overall notes",
+            "",
+            "- **MACproxy** and **route_inefficiency_pct** use Rust `sim_metrics.json` at exit; "
+            "baseline uses `route_metrics_timing: mission_complete` (totals when missions finish).",
+            "- Daidalus arm uses the **current** `best_genome.json` reactive tuning (evasion, "
+            "`min_alert_level`, `daa_intruder_eval_mode`, etc.).",
+            "- This matrix does **not** re-run Python xTM; it compares two Rust configurations on "
+            "the **same** `sjc_scenario_gen` instance per scenario.",
+            "",
+        ]
+    )
+    return "\n".join(lines)
 
 
 if __name__ == "__main__":

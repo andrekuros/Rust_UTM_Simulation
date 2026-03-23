@@ -15,6 +15,11 @@ All scripts that compare “mixed_20 vs random” should use this builder so onl
 from __future__ import annotations
 
 
+def _daa_intruder_eval_mode_from_genome(genome: dict) -> str:
+    v = str(genome.get("daa_intruder_eval_mode", "pairwise")).strip().lower()
+    return v if v in ("pairwise", "multi") else "pairwise"
+
+
 def build_daidalus_sim_config(
     genome: dict,
     duration_s: float,
@@ -50,8 +55,12 @@ def build_daidalus_sim_config(
                 "final_approach_no_reactive_radius_m": float(
                     genome.get("final_approach_no_reactive_radius_m", 0.0)
                 ),
+                "daa_intruder_eval_mode": _daa_intruder_eval_mode_from_genome(genome),
             },
             "route_ideal_distance_mode": "chord",
-            "route_metrics_timing": "mission_complete",
+            # `spawn` = ideal at spawn + integrate real each tick. Encounter / time-capped runs
+            # often never land, so `mission_complete` leaves total_ideal/real at 0. Full pad-to-pad
+            # sweeps that need “only finished missions” can override to `mission_complete`.
+            "route_metrics_timing": "spawn",
         }
     }

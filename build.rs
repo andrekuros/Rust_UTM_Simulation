@@ -1,5 +1,4 @@
 use std::fs;
-use std::path::Path;
 
 fn main() {
     let mut build = cxx_build::bridge("src/daidalus/mod.rs");

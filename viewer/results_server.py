@@ -3,7 +3,7 @@
 Serve the UTM viewer (viewer/index.html) and JSON + telemetry from experiment results.
 
   cd /path/to/Rust_models && python3 viewer/results_server.py
-  Open http://127.0.0.1:8765/
+  Open the printed URL (default port 8765; auto-fallback if that port is blocked on Windows).
 
 API:
   GET /api/runs
@@ -16,7 +16,7 @@ API:
       Streams the file (only under allowed results roots).
 
 Env:
-  VIEWER_PORT   (default 8765)
+  VIEWER_PORT   (default 8765; server tries alternate ports if bind fails)
   VIEWER_HOST   (default 127.0.0.1)
   VIEWER_RESULTS_GLOBS  optional colon-separated directories under the repo root to scan.
       If unset, scans **all of** ``experiments/`` (every sub-project with telemetry).
@@ -221,17 +221,47 @@ class Handler(SimpleHTTPRequestHandler):
         self.end_headers()
 
 
+def _bind_http_server(host: str, preferred: int) -> tuple[HTTPServer, int, OSError | None]:
+    """Bind HTTPServer; try fallbacks if the port is busy or forbidden (common on Windows)."""
+    candidates: list[int] = [preferred]
+    for p in (8780, 8800, 8888, 9000):
+        if p not in candidates:
+            candidates.append(p)
+    first_err: OSError | None = None
+    for p in candidates:
+        try:
+            httpd = HTTPServer((host, p), Handler)
+            err_for_note = first_err if p != preferred else None
+            return httpd, p, err_for_note
+        except OSError as e:
+            if first_err is None:
+                first_err = e
+            continue
+    try:
+        httpd = HTTPServer((host, 0), Handler)
+        return httpd, httpd.server_address[1], first_err
+    except OSError:
+        raise first_err from None
+
+
 def main() -> None:
     host = os.environ.get("VIEWER_HOST", "127.0.0.1")
     port = int(os.environ.get("VIEWER_PORT", "8765"))
     repo = _repo_root()
     Handler.repo = repo
     Handler.allowed_roots = _allowed_roots(repo)
-    httpd = HTTPServer((host, port), Handler)
+    httpd, bound, bind_err = _bind_http_server(host, port)
+    if bound != port and bind_err is not None:
+        print(
+            f"Note: {host}:{port} unavailable ({bind_err}); using {bound}. "
+            "Override with VIEWER_PORT, or inspect reserved ranges: "
+            "`netsh interface ipv4 show excludedportrange protocol=tcp`",
+            flush=True,
+        )
     roots = [str(r.relative_to(repo)) for r in Handler.allowed_roots if r.is_dir()]
     print(f"Repo: {repo}")
     print(f"Scanning: {roots or '(none — create experiments/)'}")
-    print(f"Viewer: http://{host}:{port}/")
+    print(f"Viewer: http://{host}:{bound}/")
     print("API: GET /api/runs (grouped by experiments/)  |  GET /api/telemetry?path=<repo-relative>")
     try:
         httpd.serve_forever()

@@ -22,6 +22,13 @@ public:
         const Vec3F& pos_a, const Vec3F& vel_a,
         const Vec3F& pos_b, const Vec3F& vel_b
     );
+
+    /** One ownship + N traffic; bands/alerts consider all traffic together. */
+    DaidalusResult evaluate_multi(
+        const Vec3F& pos_o, const Vec3F& vel_o,
+        rust::Slice<const Vec3F> traffic_pos,
+        rust::Slice<const Vec3F> traffic_vel
+    );
 };
 
 std::unique_ptr<DaidalusWrapper> new_daidalus(const DaidalusCppTune& t);

@@ -1,8 +1,0 @@
-{
-  "case": "center_perpendicular_double",
-  "description": "Two independent perpendicular crossings, stacked in z (\u00b1220) \u2014 four aircraft, all near the origin band.",
-  "duration_s": 150.0,
-  "default_duration_s": 150.0,
-  "genome_source": "/home/suporte/Conceptio_Services/Rust_models/experiments/daidalus_ga/best_genome.json",
-  "returncode": 0
-}

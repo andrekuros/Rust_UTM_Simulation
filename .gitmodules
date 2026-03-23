@@ -1,0 +1,3 @@
+[submodule "src/daidalus/vendor/daidalus"]
+	path = src/daidalus/vendor/daidalus
+	url = https://github.com/nasa/daidalus.git
