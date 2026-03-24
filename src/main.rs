@@ -19,7 +19,8 @@ use crate::comms::CommsPlugin;
 
 use crate::daidalus::DaidalusPlugin;
 use crate::core::route_metrics::{
-    ideal_distance_m, MissionRouteMetrics, RouteIdealDistanceMode, RouteMetricsConfig, RouteMetricsTiming,
+    ideal_distance_m, MissionCompleteProximityConfig, MissionRouteMetrics, RouteIdealDistanceMode,
+    RouteMetricsConfig, RouteMetricsTiming,
 };
 
 #[derive(Serialize, Deserialize, Resource)]
@@ -131,6 +132,9 @@ struct SimulationConfigJSON {
     // Legacy field — mapped to log_level internally
     #[serde(default)]
     log_periodic: Option<bool>,
+    /// Horizontal metres to last waypoint: if > 0, mission completes inside this radius on the final leg (default omitted = 0 = require all waypoints).
+    #[serde(default)]
+    mission_complete_proximity_m: Option<f32>,
 }
 
 fn default_landing_ignore_height_max_m() -> f32 {
@@ -193,6 +197,14 @@ fn main() {
             .unwrap_or(RouteMetricsTiming::MissionComplete),
     };
 
+    let mission_proximity = MissionCompleteProximityConfig {
+        radius_m: root_config
+            .simulation
+            .mission_complete_proximity_m
+            .unwrap_or(0.0)
+            .max(0.0),
+    };
+
     let landing_collision_ignore = crate::daidalus::LandingCollisionIgnoreConfig {
         radius_m: root_config.simulation.landing_collision_ignore_radius_m,
         height_max_m: root_config.simulation.landing_collision_ignore_height_max_m,
@@ -209,8 +221,10 @@ fn main() {
         physics_hz
     );
     println!(
-        "Route metrics: ideal_mode={:?}, timing={:?}",
-        route_cfg.ideal_mode, route_cfg.timing
+        "Route metrics: ideal_mode={:?}, timing={:?}, mission_complete_proximity_m={}",
+        route_cfg.ideal_mode,
+        route_cfg.timing,
+        mission_proximity.radius_m
     );
 
     let mut app = App::new();
@@ -242,6 +256,7 @@ fn main() {
             interval_s: log_interval_s,
         })
         .insert_resource(route_cfg)
+        .insert_resource(mission_proximity)
         .insert_resource(crate::core::PhysicsHz(physics_hz))
         .insert_resource(ProgressTimer(Timer::from_seconds(1.0, TimerMode::Repeating)))
         .init_resource::<ScenarioMetadata>()
@@ -430,11 +445,17 @@ fn spawn_drones_by_schedule(
 fn despawn_completed_drones(
     mut commands: Commands,
     route_cfg: Res<RouteMetricsConfig>,
+    proximity: Res<MissionCompleteProximityConfig>,
     mut metrics: ResMut<crate::core::logger::SimMetrics>,
     query: Query<(Entity, &FlightState, &Transform, &MissionRouteMetrics)>,
 ) {
     for (entity, state, transform, route) in query.iter() {
-        if *state == FlightState::Completed && transform.translation.y < 2.0 {
+        if *state != FlightState::Completed {
+            continue;
+        }
+        let landed = transform.translation.y < 2.0;
+        let may_despawn = landed || proximity.radius_m > 0.0;
+        if may_despawn {
             metrics.completed_missions += 1;
             if route_cfg.timing == RouteMetricsTiming::MissionComplete {
                 metrics.total_ideal_distance += route.ideal_m;

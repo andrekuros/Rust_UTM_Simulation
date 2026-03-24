@@ -146,6 +146,7 @@ DaidalusResult DaidalusWrapper::evaluate_pair(
     res.time_to_violation = -1.0f;
     res.min_safe_heading = 0.0f;
     res.max_safe_heading = 0.0f;
+    res.preferred_resolution_heading = 0.0f;
 
     daa->clear();
     daa->setOwnshipState("A",
@@ -164,6 +165,10 @@ DaidalusResult DaidalusWrapper::evaluate_pair(
     }
     res.alert_level = al;
     res.time_to_violation = (float)daa->timeToHorizontalClosestPointOfApproach(ac_idx);
+    double hres = best_resolution_heading(daa.get());
+    if (finite_heading_rad(hres)) {
+        res.preferred_resolution_heading = static_cast<float>(hres);
+    }
 
     const double rel_x = static_cast<double>(pos_b.x - pos_a.x);
     const double rel_z = static_cast<double>(pos_b.z - pos_a.z);
@@ -182,6 +187,7 @@ DaidalusResult DaidalusWrapper::evaluate_multi(
     res.time_to_violation = -1.0f;
     res.min_safe_heading = 0.0f;
     res.max_safe_heading = 0.0f;
+    res.preferred_resolution_heading = 0.0f;
 
     const std::size_t n = traffic_pos.size();
     if (n == 0 || n != traffic_vel.size()) {
@@ -217,6 +223,10 @@ DaidalusResult DaidalusWrapper::evaluate_multi(
     }
     if (std::isfinite(tmin)) {
         res.time_to_violation = static_cast<float>(tmin);
+    }
+    double hres = best_resolution_heading(daa.get());
+    if (finite_heading_rad(hres)) {
+        res.preferred_resolution_heading = static_cast<float>(hres);
     }
 
     // Fallback geometry: horizontal vector from ownship to closest traffic in XZ

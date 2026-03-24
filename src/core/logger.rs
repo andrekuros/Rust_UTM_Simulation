@@ -83,11 +83,35 @@ const MACPROXY_H: f32 = 20.0;
 const MACPROXY_V: f32 = 10.0;
 const MACPROXY_RESET_H: f32 = 40.0;
 
+/// FNV-1a 64-bit (stable across runs) for short ids; combined for an unordered pair key.
+#[inline]
+fn fnv1a64(s: &str) -> u64 {
+    const OFFSET: u64 = 14695981039346656037;
+    const PRIME: u64 = 1099511628211;
+    let mut h = OFFSET;
+    for &b in s.as_bytes() {
+        h ^= b as u64;
+        h = h.wrapping_mul(PRIME);
+    }
+    h
+}
+
+/// Compact key for a drone pair (order-independent). Avoids allocating `String` on every
+/// MACproxy / DAA tick — millions of `(String, String)` pairs were fragmenting the heap and
+/// slowing long runs even when concurrent drone count was flat.
+#[inline]
+fn stable_pair_key(a: &str, b: &str) -> u128 {
+    let (lo, hi) = if a < b { (a, b) } else { (b, a) };
+    let x = fnv1a64(lo);
+    let y = fnv1a64(hi);
+    ((x as u128) << 64) | (y as u128)
+}
+
 #[derive(Resource, Default)]
 pub struct SimMetrics {
     pub macproxy_count: u32,
-    pub macproxy_active: HashSet<(String, String)>,
-    pub daa_alert_pairs: HashSet<(String, String)>,
+    pub macproxy_active: HashSet<u128>,
+    pub daa_alert_pairs: HashSet<u128>,
     pub completed_missions: u32,
     /// Set from scenario at load (`scenario.drones.len()`).
     pub total_scheduled_missions: u32,
@@ -96,10 +120,6 @@ pub struct SimMetrics {
     /// Filled on exit: why missions were still incomplete at `duration` (not spawned, or still in world).
     pub incomplete_missions_by_reason: HashMap<String, u32>,
     drone_last_pos: HashMap<String, Vec3>,
-}
-
-fn ordered_pair(a: &str, b: &str) -> (String, String) {
-    if a < b { (a.to_string(), b.to_string()) } else { (b.to_string(), a.to_string()) }
 }
 
 // ── Plugin ─────────────────────────────────────────────────────────────
@@ -214,26 +234,42 @@ fn macproxy_system(
         }
     }
 
-    // Track DAA alert pairs
+    // Track DAA alert pairs (stable u128 keys — no per-tick String allocation)
     for alert in active_collisions.alerts.iter() {
         if alert.alert_level > 0 {
-            let pair = ordered_pair(&alert.drone_a, &alert.drone_b);
-            metrics.daa_alert_pairs.insert(pair);
+            metrics
+                .daa_alert_pairs
+                .insert(stable_pair_key(&alert.drone_a, &alert.drone_b));
         }
     }
 
-    // MACproxy: check all airborne pairs using spatial hashing
-    let airborne: Vec<(String, Vec3)> = query.iter()
-        .filter(|(_, t, _, _, _)| t.translation.y >= 5.0)
+    // MACproxy parity with Python refs:
+    // - do NOT require both drones airborne
+    // - skip only when both are below 5m AGL (ground/ground pair)
+    //
+    // Use a **3D** uniform grid (not XZ-only). A 2D grid puts every aircraft in the same map column
+    // into one bucket regardless of altitude → O(k²) checks when k is large (common in corridor
+    // traffic), which makes long runs appear to “slow down” as more drones share cells.
+    let airborne: Vec<(String, Vec3)> = query
+        .iter()
         .map(|(d, t, _, _, _)| (d.id.clone(), t.translation))
         .collect();
 
-    let cell = 50.0_f32;
-    let mut grid: HashMap<(i32, i32), Vec<usize>> = HashMap::new();
+    if matches!(route_cfg.timing, RouteMetricsTiming::Spawn) {
+        let alive: HashSet<&str> = airborne.iter().map(|(id, _)| id.as_str()).collect();
+        metrics
+            .drone_last_pos
+            .retain(|k, _| alive.contains(k.as_str()));
+    }
+
+    const CELL_XZ: f32 = 50.0_f32;
+    const CELL_Y: f32 = 10.0_f32;
+    let mut grid: HashMap<(i32, i32, i32), Vec<usize>> = HashMap::new();
     for (i, (_, pos)) in airborne.iter().enumerate() {
-        let cx = (pos.x / cell).floor() as i32;
-        let cz = (pos.z / cell).floor() as i32;
-        grid.entry((cx, cz)).or_default().push(i);
+        let cx = (pos.x / CELL_XZ).floor() as i32;
+        let cy = (pos.y / CELL_Y).floor() as i32;
+        let cz = (pos.z / CELL_XZ).floor() as i32;
+        grid.entry((cx, cy, cz)).or_default().push(i);
     }
 
     let mut check = |i: usize, j: usize| {
@@ -247,31 +283,42 @@ fn macproxy_system(
         ) {
             return;
         }
+        if pos_a.y < 5.0 && pos_b.y < 5.0 {
+            return;
+        }
         let dh = ((pos_a.x - pos_b.x).powi(2) + (pos_a.z - pos_b.z).powi(2)).sqrt();
         let dv = (pos_a.y - pos_b.y).abs();
-        let pair = ordered_pair(id_a, id_b);
+        let pk = stable_pair_key(id_a.as_str(), id_b.as_str());
 
         if dh < MACPROXY_H && dv < MACPROXY_V {
-            if !metrics.macproxy_active.contains(&pair) {
-                metrics.macproxy_active.insert(pair.clone());
+            if metrics.macproxy_active.insert(pk) {
                 metrics.macproxy_count += 1;
             }
         } else if dh > MACPROXY_RESET_H {
-            metrics.macproxy_active.remove(&pair);
+            metrics.macproxy_active.remove(&pk);
         }
     };
 
-    for (&(cx, cz), idxs) in grid.iter() {
+    // All 26 adjacent 3D cells (same as {-1,0,1}^3 \ {(0,0,0)}). A partial stencil misses
+    // pairs that straddle e.g. (cy) and (cy-1) when only upward offsets are listed.
+    for (&(cx, cy, cz), idxs) in grid.iter() {
         for i in 0..idxs.len() {
             for j in (i + 1)..idxs.len() {
                 check(idxs[i], idxs[j]);
             }
         }
-        for &(dx, dz) in &[(1,0),(0,1),(1,1),(1,-1)] {
-            if let Some(nbr) = grid.get(&(cx + dx, cz + dz)) {
-                for &a in idxs {
-                    for &b in nbr {
-                        check(a, b);
+        for dx in -1i32..=1 {
+            for dy in -1i32..=1 {
+                for dz in -1i32..=1 {
+                    if dx == 0 && dy == 0 && dz == 0 {
+                        continue;
+                    }
+                    if let Some(nbr) = grid.get(&(cx + dx, cy + dy, cz + dz)) {
+                        for &a in idxs {
+                            for &b in nbr {
+                                check(a, b);
+                            }
+                        }
                     }
                 }
             }
@@ -298,41 +345,60 @@ fn write_entry(entry: &TelemetryEntry) {
     }
 }
 
-fn build_alerts_for_drone(
-    drone_id: &str,
-    active_collisions: &crate::daidalus::ActiveCollisions,
-) -> (Vec<CollisionLog>, Vec<String>) {
-    let mut alerts = Vec::new();
-    let mut alert_ids = Vec::new();
-    for alert in active_collisions.alerts.iter() {
-        let ownship_ok = alert.ownship_id.is_empty() || alert.ownship_id == drone_id;
-        if !ownship_ok {
-            continue;
-        }
-        if alert.drone_a == drone_id {
-            alerts.push(CollisionLog {
-                other_drone_id: alert.drone_b.clone(),
-                distance: alert.distance,
-                alert_level: alert.alert_level,
-                time_to_violation: alert.time_to_violation,
-                min_safe_heading: alert.min_safe_heading,
-                max_safe_heading: alert.max_safe_heading,
-            });
-            alert_ids.push(format!("{}_{}", alert.drone_b, alert.alert_level));
-        } else if alert.drone_b == drone_id {
-            alerts.push(CollisionLog {
-                other_drone_id: alert.drone_a.clone(),
-                distance: alert.distance,
-                alert_level: alert.alert_level,
-                time_to_violation: alert.time_to_violation,
-                min_safe_heading: alert.min_safe_heading,
-                max_safe_heading: alert.max_safe_heading,
-            });
-            alert_ids.push(format!("{}_{}", alert.drone_a, alert.alert_level));
+fn alert_signature_from_logs(logs: &[CollisionLog]) -> Vec<String> {
+    let mut v: Vec<String> = logs
+        .iter()
+        .map(|c| format!("{}_{}", c.other_drone_id, c.alert_level))
+        .collect();
+    v.sort();
+    v
+}
+
+/// One pass over `active_collisions` → O(alerts) instead of O(drones × alerts) per telemetry tick.
+fn build_alerts_index(
+    active: &crate::daidalus::ActiveCollisions,
+) -> HashMap<String, (Vec<CollisionLog>, Vec<String>)> {
+    let mut m: HashMap<String, Vec<CollisionLog>> = HashMap::new();
+    for alert in active.alerts.iter() {
+        let log_for_a = CollisionLog {
+            other_drone_id: alert.drone_b.clone(),
+            distance: alert.distance,
+            alert_level: alert.alert_level,
+            time_to_violation: alert.time_to_violation,
+            min_safe_heading: alert.min_safe_heading,
+            max_safe_heading: alert.max_safe_heading,
+        };
+        let log_for_b = CollisionLog {
+            other_drone_id: alert.drone_a.clone(),
+            distance: alert.distance,
+            alert_level: alert.alert_level,
+            time_to_violation: alert.time_to_violation,
+            min_safe_heading: alert.min_safe_heading,
+            max_safe_heading: alert.max_safe_heading,
+        };
+        if alert.ownship_id.is_empty() {
+            m.entry(alert.drone_a.clone())
+                .or_default()
+                .push(log_for_a);
+            m.entry(alert.drone_b.clone())
+                .or_default()
+                .push(log_for_b);
+        } else if alert.ownship_id == alert.drone_a {
+            m.entry(alert.drone_a.clone())
+                .or_default()
+                .push(log_for_a);
+        } else if alert.ownship_id == alert.drone_b {
+            m.entry(alert.drone_b.clone())
+                .or_default()
+                .push(log_for_b);
         }
     }
-    alert_ids.sort();
-    (alerts, alert_ids)
+    m.into_iter()
+        .map(|(k, logs)| {
+            let sig = alert_signature_from_logs(&logs);
+            (k, (logs, sig))
+        })
+        .collect()
 }
 
 fn telemetry_system(
@@ -355,6 +421,9 @@ fn telemetry_system(
     }
 
     let current_time = time.elapsed_seconds();
+    let alert_index = build_alerts_index(&active_collisions);
+    let empty_logs: &[CollisionLog] = &[];
+    let empty_sig: &[String] = &[];
 
     if cfg.level == LogLevel::Full {
         if !log_timer.0.tick(time.delta()).just_finished() {
@@ -364,7 +433,10 @@ fn telemetry_system(
             let pos = transform.translation;
             let is_airborne = pos.y >= 2.0 || vel.0.length() > 0.5;
             if !is_airborne { continue; }
-            let (alerts, _) = build_alerts_for_drone(&drone.id, &active_collisions);
+            let alerts = alert_index
+                .get(&drone.id)
+                .map(|(a, _)| a.clone())
+                .unwrap_or_default();
             let has_reactive = avoid_opt.map(|a| a.target.is_some()).unwrap_or(false);
             write_entry(&TelemetryEntry {
                 time_elapsed: current_time,
@@ -379,17 +451,30 @@ fn telemetry_system(
         return;
     }
 
-    // Compact: event-based
+    // Compact: event-based — drop state for despawned drones (avoids unbounded HashMap growth
+    // if ids are reused across missions or telemetry runs for a very long time).
+    let alive_ids: HashSet<String> = query
+        .iter()
+        .map(|(d, _, _, _, _, _)| d.id.clone())
+        .collect();
+    last_states.retain(|id, _| alive_ids.contains(id));
+
     for (drone, transform, vel, flight_plan, avoidance_opt, fs_opt) in query.iter() {
         let pos = transform.translation;
-        let (alerts, alert_ids) = build_alerts_for_drone(&drone.id, &active_collisions);
+        let (logs_ref, sig_ref) = alert_index
+            .get(&drone.id)
+            .map(|(a, s)| (a.as_slice(), s.as_slice()))
+            .unwrap_or((empty_logs, empty_sig));
 
         let has_avoid = avoidance_opt.map(|a| a.target.is_some()).unwrap_or(false);
         let wp_idx = flight_plan.current_waypoint_index;
 
         let mut changed = false;
         if let Some(state) = last_states.get(&drone.id) {
-            if state.wp_idx != wp_idx || state.has_avoidance != has_avoid || state.alerts != alert_ids {
+            if state.wp_idx != wp_idx
+                || state.has_avoidance != has_avoid
+                || state.alerts.as_slice() != sig_ref
+            {
                 changed = true;
             }
         } else {
@@ -397,11 +482,14 @@ fn telemetry_system(
         }
 
         if changed {
-            last_states.insert(drone.id.clone(), DroneLogState {
-                wp_idx,
-                has_avoidance: has_avoid,
-                alerts: alert_ids,
-            });
+            last_states.insert(
+                drone.id.clone(),
+                DroneLogState {
+                    wp_idx,
+                    has_avoidance: has_avoid,
+                    alerts: sig_ref.to_vec(),
+                },
+            );
             write_entry(&TelemetryEntry {
                 time_elapsed: current_time,
                 drone_id: drone.id.clone(),
@@ -409,7 +497,7 @@ fn telemetry_system(
                 velocity: Some([vel.0.x, vel.0.y, vel.0.z]),
                 flight_state: fs_opt.map(|s| s.to_string()),
                 has_reactive_target: has_avoid,
-                collision_alerts: alerts,
+                collision_alerts: logs_ref.to_vec(),
             });
         }
     }

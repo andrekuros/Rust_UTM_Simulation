@@ -1,4 +1,9 @@
 //! Route distance accounting for `sim_metrics.json` (parity with Python xTM scripts).
+//!
+//! **Route inefficiency** matches `testeprimordial*.py`:  
+//! `route_inefficiency_pct = (total_real - total_ideal) / total_ideal * 100` when `total_ideal > 0`.
+//! Ideal length depends on [`RouteIdealDistanceMode`]: `chord` ≈ Python direct start→goal distance;
+//! `polyline` = sum of waypoint legs (NFZ detours in the plan count toward ideal).
 
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -63,5 +68,19 @@ pub fn ideal_distance_m(waypoints: &[Vec3], mode: RouteIdealDistanceMode) -> f32
                 waypoints.first().unwrap().distance(*waypoints.last().unwrap())
             }
         }
+    }
+}
+
+/// When `radius_m > 0`, a drone on the **final leg** completes the mission if horizontal (XZ)
+/// distance to the **last waypoint** is ≤ `radius_m` (avoids orbiting near the pad when turn rate
+/// blocks the 1 m capture). `0` = legacy: must advance through all waypoints (including ground).
+#[derive(Resource, Clone, Copy)]
+pub struct MissionCompleteProximityConfig {
+    pub radius_m: f32,
+}
+
+impl Default for MissionCompleteProximityConfig {
+    fn default() -> Self {
+        Self { radius_m: 0.0 }
     }
 }

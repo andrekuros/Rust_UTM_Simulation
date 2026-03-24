@@ -1,0 +1,34 @@
+{
+  "simulation": {
+    "duration": 1000.0,
+    "collision_threshold": 20.0,
+    "show_progress_bar": true,
+    "avoidance_mode": "Daidalus",
+    "scenario_file": "config/scenario_dynamic.json",
+    "enable_mqtt": false,
+    "log_level": "full",
+    "log_interval_s": 2.0,
+    "physics_hz": 1.0,
+    "daa_interval_s": 2.0,
+    "daidalus_tune": {
+      "evasion_offset_m": 300.0,
+      "evasion_duration_s": 5.0,
+      "heading_blend": 1.0,
+      "track_mix": 0.0,
+      "min_alert_level": 1,
+      "cpp_distance_filter_m": 150.0,
+      "cpp_lookahead_s": 150.0,
+      "cpp_horizontal_nmac_m": 20.0,
+      "max_cross_track_m": 350.0,
+      "final_approach_no_reactive_radius_m": 100.0,
+      "daa_intruder_eval_mode": "multi",
+      "action_mode": "discrete_action",
+      "trigger_mode": "alert_level",
+      "ttv_threshold_s": 15.0,
+      "discrete_turn_deg": 60.0,
+      "discrete_hold_s": 3.0
+    },
+    "route_ideal_distance_mode": "chord",
+    "route_metrics_timing": "mission_complete"
+  }
+}

@@ -31,7 +31,7 @@ from daidalus_sim_config_shared import build_daidalus_sim_config  # noqa: E402
 
 BIN = os.path.join(REPO, "target", "release", "hpm_utm_simulator")
 SJC_GEN = os.path.join(REPO, "sjc_scenario_gen.py")
-SCENARIO_CHOICES = ("1", "2", "3", "4a", "4b")
+SCENARIO_CHOICES = ("1", "2", "3", "4a", "4b", "4c")
 
 
 def _load_genome(path: str) -> dict:
@@ -133,6 +133,9 @@ def _run_arm(payload: dict) -> dict:
                 physics_hz=physics_hz,
                 log_level="full",
             )
+            # Apple-to-apple with Python refs and no_daidalus arm.
+            cfg.setdefault("simulation", {})["route_ideal_distance_mode"] = "chord"
+            cfg["simulation"]["route_metrics_timing"] = "mission_complete"
         with open(os.path.join(work, "config", "sim_config.json"), "w") as f:
             json.dump(cfg, f, indent=2)
 

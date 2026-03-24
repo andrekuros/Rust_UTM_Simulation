@@ -1,0 +1,296 @@
+{
+  "config_path": "D:\\GITHUB\\Rust_UTM_Simulation\\experiments\\xtm_primordial_rust\\run_from_config.example.json",
+  "output_dir": "D:\\GITHUB\\Rust_UTM_Simulation\\experiments\\xtm_primordial_rust\\results\\from_config_demo",
+  "config_used": {
+    "_comment_experiment_type": "Options: standard | encounter_suite",
+    "experiment_type": "encounter_suite",
+    "_comment_scenario": "Options: 1, 2, 3, 4a, 4b, 4c",
+    "scenario": "2",
+    "_comment_mode": "Options: both | no_daidalus | daidalus",
+    "mode": "both",
+    "_comment_no_daidalus_avoidance_mode": "Optional override for baseline arm. Options: None | Fixed | Python2 | Python4a | Python4b. If null, scenario-based default is used.",
+    "no_daidalus_avoidance_mode": "Python2",
+    "_comment_encounter_cases": "Used when experiment_type=encounter_suite. Options: head_on_2, cross_90_2, oblique_45_2, overtake_2, cross_90_3, merge_3, box_4",
+    "encounter_cases": [
+      "head_on_2",
+      "cross_90_2",
+      "oblique_45_2",
+      "box_4"
+    ],
+    "_comment_encounter_mixed_fleet": "Used when experiment_type=encounter_suite. true mixes rotorcraft+fixedwing; false uses rotorcraft only.",
+    "encounter_mixed_fleet": true,
+    "num_drones": 200,
+    "duration_s": 300,
+    "physics_hz": 10.0,
+    "_comment_log_level": "Options: metrics | compact | full",
+    "log_level": "full",
+    "log_interval_s": 1.0,
+    "show_progress_bar": true,
+    "cpp_distance_filter_m": 250.0,
+    "_comment_daa_intruder_eval_mode": "Options: pairwise | multi",
+    "daa_intruder_eval_mode": "multi",
+    "_comment_daa_action_mode": "Options: safe_band | preferred_horizontal_resolution | discrete_action. After changing simulator code, run: cargo build --release",
+    "daa_action_mode": "preferred_horizontal_resolution",
+    "_comment_daa_trigger_mode": "Options: alert_level | ttv",
+    "daa_trigger_mode": "ttv",
+    "_comment_daa_ttv_threshold_s": "Used when daa_trigger_mode=ttv",
+    "daa_ttv_threshold_s": 20.0,
+    "_comment_daa_discrete_turn_deg": "Used when daa_action_mode=discrete_action",
+    "daa_discrete_turn_deg": 60.0,
+    "_comment_daa_discrete_hold_s": "Used when daa_action_mode=discrete_action",
+    "daa_discrete_hold_s": 3.0,
+    "_comment_route_ideal_distance_mode": "Options: chord | polyline",
+    "route_ideal_distance_mode": "chord",
+    "_comment_route_metrics_timing": "Options: mission_complete | spawn",
+    "route_metrics_timing": "mission_complete",
+    "_comment_mission_complete_proximity_m": "Horizontal metres: on final leg, mission completes when within this radius of last waypoint (0 = legacy, require all waypoints).",
+    "mission_complete_proximity_m": 100.0,
+    "output_dir": "experiments/xtm_primordial_rust/results/from_config_demo",
+    "genome_path": "experiments/daidalus_ga/best_genome.json",
+    "seed": 42,
+    "encounter_drone_counts": []
+  },
+  "experiment_type": "encounter_suite",
+  "cases": [
+    {
+      "case": "head_on_2",
+      "num_drones": 2,
+      "output_dir": "D:\\GITHUB\\Rust_UTM_Simulation\\experiments\\xtm_primordial_rust\\results\\from_config_demo\\encounter_head_on_2",
+      "summary_path": "D:\\GITHUB\\Rust_UTM_Simulation\\experiments\\xtm_primordial_rust\\results\\from_config_demo\\encounter_head_on_2\\summary.json",
+      "speed_summary": {
+        "running_speed_x_by_arm": {
+          "no_daidalus": 9255.8883,
+          "daidalus": 4441.4374
+        },
+        "daidalus_vs_no_daidalus_speed_ratio": 0.47985
+      },
+      "study_metrics": {
+        "no_daidalus": {
+          "mean_authorization_delay_s": null,
+          "mean_authorization_delay_min": null,
+          "completed_missions": 2,
+          "total_scheduled_missions": 2,
+          "incomplete_missions_total": 0,
+          "macproxy_count": 0,
+          "daa_alert_pairs": 1,
+          "route_inefficiency_pct": 14.555797113312616,
+          "total_real_distance_m": 4124.008696079254,
+          "total_ideal_distance_m": 3600.0,
+          "running_speed_x": 9255.8883,
+          "wall_seconds": 0.032,
+          "telemetry_bytes": 38465,
+          "rc": 0
+        },
+        "daidalus": {
+          "mean_authorization_delay_s": null,
+          "mean_authorization_delay_min": null,
+          "completed_missions": 2,
+          "total_scheduled_missions": 2,
+          "incomplete_missions_total": 0,
+          "macproxy_count": 0,
+          "daa_alert_pairs": 1,
+          "route_inefficiency_pct": 18.88218785656823,
+          "total_real_distance_m": 4279.758762836456,
+          "total_ideal_distance_m": 3600.0,
+          "running_speed_x": 4441.4374,
+          "wall_seconds": 0.068,
+          "telemetry_bytes": 39554,
+          "rc": 0
+        }
+      },
+      "study_deltas": {
+        "daidalus_minus_no_daidalus": {
+          "mean_authorization_delay_s": null,
+          "mean_authorization_delay_min": null,
+          "completed_missions": 0.0,
+          "incomplete_missions_total": 0.0,
+          "macproxy_count": 0.0,
+          "daa_alert_pairs": 0.0,
+          "route_inefficiency_pct": 4.3263907432556135,
+          "running_speed_x": -4814.450900000001,
+          "wall_seconds": 0.036000000000000004
+        }
+      }
+    },
+    {
+      "case": "cross_90_2",
+      "num_drones": 2,
+      "output_dir": "D:\\GITHUB\\Rust_UTM_Simulation\\experiments\\xtm_primordial_rust\\results\\from_config_demo\\encounter_cross_90_2",
+      "summary_path": "D:\\GITHUB\\Rust_UTM_Simulation\\experiments\\xtm_primordial_rust\\results\\from_config_demo\\encounter_cross_90_2\\summary.json",
+      "speed_summary": {
+        "running_speed_x_by_arm": {
+          "no_daidalus": 8577.114,
+          "daidalus": 6851.4268
+        },
+        "daidalus_vs_no_daidalus_speed_ratio": 0.798803
+      },
+      "study_metrics": {
+        "no_daidalus": {
+          "mean_authorization_delay_s": null,
+          "mean_authorization_delay_min": null,
+          "completed_missions": 2,
+          "total_scheduled_missions": 2,
+          "incomplete_missions_total": 0,
+          "macproxy_count": 0,
+          "daa_alert_pairs": 0,
+          "route_inefficiency_pct": 3.28995304968622,
+          "total_real_distance_m": 3718.438309788704,
+          "total_ideal_distance_m": 3600.0,
+          "running_speed_x": 8577.114,
+          "wall_seconds": 0.035,
+          "telemetry_bytes": 31379,
+          "rc": 0
+        },
+        "daidalus": {
+          "mean_authorization_delay_s": null,
+          "mean_authorization_delay_min": null,
+          "completed_missions": 2,
+          "total_scheduled_missions": 2,
+          "incomplete_missions_total": 0,
+          "macproxy_count": 0,
+          "daa_alert_pairs": 0,
+          "route_inefficiency_pct": 3.28995304968622,
+          "total_real_distance_m": 3718.438309788704,
+          "total_ideal_distance_m": 3600.0,
+          "running_speed_x": 6851.4268,
+          "wall_seconds": 0.044,
+          "telemetry_bytes": 31206,
+          "rc": 0
+        }
+      },
+      "study_deltas": {
+        "daidalus_minus_no_daidalus": {
+          "mean_authorization_delay_s": null,
+          "mean_authorization_delay_min": null,
+          "completed_missions": 0.0,
+          "incomplete_missions_total": 0.0,
+          "macproxy_count": 0.0,
+          "daa_alert_pairs": 0.0,
+          "route_inefficiency_pct": 0.0,
+          "running_speed_x": -1725.6871999999994,
+          "wall_seconds": 0.008999999999999994
+        }
+      }
+    },
+    {
+      "case": "oblique_45_2",
+      "num_drones": 2,
+      "output_dir": "D:\\GITHUB\\Rust_UTM_Simulation\\experiments\\xtm_primordial_rust\\results\\from_config_demo\\encounter_oblique_45_2",
+      "summary_path": "D:\\GITHUB\\Rust_UTM_Simulation\\experiments\\xtm_primordial_rust\\results\\from_config_demo\\encounter_oblique_45_2\\summary.json",
+      "speed_summary": {
+        "running_speed_x_by_arm": {
+          "no_daidalus": 9072.9831,
+          "daidalus": 4910.2569
+        },
+        "daidalus_vs_no_daidalus_speed_ratio": 0.541195
+      },
+      "study_metrics": {
+        "no_daidalus": {
+          "mean_authorization_delay_s": null,
+          "mean_authorization_delay_min": null,
+          "completed_missions": 2,
+          "total_scheduled_missions": 2,
+          "incomplete_missions_total": 0,
+          "macproxy_count": 1,
+          "daa_alert_pairs": 1,
+          "route_inefficiency_pct": 16.13757967449926,
+          "total_real_distance_m": 4407.111240506172,
+          "total_ideal_distance_m": 3794.733154296875,
+          "running_speed_x": 9072.9831,
+          "wall_seconds": 0.033,
+          "telemetry_bytes": 42757,
+          "rc": 0
+        },
+        "daidalus": {
+          "mean_authorization_delay_s": null,
+          "mean_authorization_delay_min": null,
+          "completed_missions": 2,
+          "total_scheduled_missions": 2,
+          "incomplete_missions_total": 0,
+          "macproxy_count": 0,
+          "daa_alert_pairs": 1,
+          "route_inefficiency_pct": 9.203758710380534,
+          "total_real_distance_m": 4143.991237521172,
+          "total_ideal_distance_m": 3794.733154296875,
+          "running_speed_x": 4910.2569,
+          "wall_seconds": 0.061,
+          "telemetry_bytes": 38929,
+          "rc": 0
+        }
+      },
+      "study_deltas": {
+        "daidalus_minus_no_daidalus": {
+          "mean_authorization_delay_s": null,
+          "mean_authorization_delay_min": null,
+          "completed_missions": 0.0,
+          "incomplete_missions_total": 0.0,
+          "macproxy_count": -1.0,
+          "daa_alert_pairs": 0.0,
+          "route_inefficiency_pct": -6.933820964118727,
+          "running_speed_x": -4162.726199999999,
+          "wall_seconds": 0.027999999999999997
+        }
+      }
+    },
+    {
+      "case": "box_4",
+      "num_drones": 4,
+      "output_dir": "D:\\GITHUB\\Rust_UTM_Simulation\\experiments\\xtm_primordial_rust\\results\\from_config_demo\\encounter_box_4",
+      "summary_path": "D:\\GITHUB\\Rust_UTM_Simulation\\experiments\\xtm_primordial_rust\\results\\from_config_demo\\encounter_box_4\\summary.json",
+      "speed_summary": {
+        "running_speed_x_by_arm": {
+          "no_daidalus": 8309.6048,
+          "daidalus": 770.5122
+        },
+        "daidalus_vs_no_daidalus_speed_ratio": 0.092725
+      },
+      "study_metrics": {
+        "no_daidalus": {
+          "mean_authorization_delay_s": null,
+          "mean_authorization_delay_min": null,
+          "completed_missions": 4,
+          "total_scheduled_missions": 4,
+          "incomplete_missions_total": 0,
+          "macproxy_count": 0,
+          "daa_alert_pairs": 3,
+          "route_inefficiency_pct": 29.210213793648617,
+          "total_real_distance_m": 9303.1353931427,
+          "total_ideal_distance_m": 7200.0,
+          "running_speed_x": 8309.6048,
+          "wall_seconds": 0.036,
+          "telemetry_bytes": 93110,
+          "rc": 0
+        },
+        "daidalus": {
+          "mean_authorization_delay_s": null,
+          "mean_authorization_delay_min": null,
+          "completed_missions": 4,
+          "total_scheduled_missions": 4,
+          "incomplete_missions_total": 0,
+          "macproxy_count": 1,
+          "daa_alert_pairs": 4,
+          "route_inefficiency_pct": 36.245812045203316,
+          "total_real_distance_m": 9809.698467254639,
+          "total_ideal_distance_m": 7200.0,
+          "running_speed_x": 770.5122,
+          "wall_seconds": 0.389,
+          "telemetry_bytes": 97606,
+          "rc": 0
+        }
+      },
+      "study_deltas": {
+        "daidalus_minus_no_daidalus": {
+          "mean_authorization_delay_s": null,
+          "mean_authorization_delay_min": null,
+          "completed_missions": 0.0,
+          "incomplete_missions_total": 0.0,
+          "macproxy_count": 1.0,
+          "daa_alert_pairs": 1.0,
+          "route_inefficiency_pct": 7.035598251554699,
+          "running_speed_x": -7539.092599999999,
+          "wall_seconds": 0.35300000000000004
+        }
+      }
+    }
+  ]
+}

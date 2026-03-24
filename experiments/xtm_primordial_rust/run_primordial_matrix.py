@@ -42,7 +42,7 @@ from daidalus_sim_config_shared import build_daidalus_sim_config  # noqa: E402
 _BIN = os.path.join(REPO, "target", "release", "hpm_utm_simulator")
 BIN = _BIN + (".exe" if sys.platform == "win32" and not _BIN.endswith(".exe") else "")
 SJC_GEN = os.path.join(REPO, "sjc_scenario_gen.py")
-SCENARIOS = ("1", "2", "3", "4a", "4b")
+SCENARIOS = ("1", "2", "3", "4a", "4b", "4c")
 MODES = ("no_daidalus", "daidalus")
 
 
@@ -169,6 +169,9 @@ def _run_single_job(payload: dict) -> dict:
                 physics_hz=physics_hz,
                 log_level="metrics",
             )
+            # Keep metric semantics aligned with Python and baseline arm.
+            cfg.setdefault("simulation", {})["route_ideal_distance_mode"] = "chord"
+            cfg["simulation"]["route_metrics_timing"] = "mission_complete"
         with open(os.path.join(work, "config", "sim_config.json"), "w") as f:
             json.dump(cfg, f, indent=2)
 
@@ -238,6 +241,7 @@ def run_analysis(results: list[dict]) -> dict:
                     "3": "testeprimordial3 — xTM tubes, no tactical DAA in generator",
                     "4a": "testeprimordial4 — xTM + DAA (4A-style)",
                     "4b": "testeprimordial4b — xTM + DAA + wind-style (4B)",
+                    "4c": "new 4C — mixed-fleet xTM + DAA + wind-style",
                 }.get(s, s),
                 "no_daidalus": _metrics_subset(m0),
                 "daidalus": _metrics_subset(m1),

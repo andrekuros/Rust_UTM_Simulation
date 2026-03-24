@@ -1,5 +1,7 @@
 # UTM Simulation Models Documentation
 
+**Extended report (DAIDALUS, avoidance modes, experiments, config):** see [`documentation/DAIDALUS_AVOIDANCE_AND_EXPERIMENTS_REPORT.md`](documentation/DAIDALUS_AVOIDANCE_AND_EXPERIMENTS_REPORT.md).
+
 ## Overview
 The **UTM_Sim_Models** project provides a highly scalable drone Unmanned Traffic Management (UTM) simulation engine built in Rust using the Bevy ECS framework and Rapier physics. It integrates the NASA Daidalus (Detect and Avoid Alerting Logic for Unmanned Systems) library for continuous collision monitoring and alerting.
 

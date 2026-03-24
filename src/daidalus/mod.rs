@@ -22,6 +22,7 @@ pub mod ffi {
         pub time_to_violation: f32,
         pub min_safe_heading: f32,
         pub max_safe_heading: f32,
+        pub preferred_resolution_heading: f32,
     }
 
     pub struct Vec3F {
@@ -66,6 +67,35 @@ pub enum DaaIntruderEvalMode {
     Multi,
 }
 
+/// How DAIDALUS-informed tactical maneuver is generated.
+#[derive(
+    Resource, Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum DaaActionMode {
+    /// Use DAIDALUS safe heading bands (current behavior).
+    #[default]
+    SafeBand,
+    /// Use DAIDALUS preferred horizontal resolution heading directly.
+    #[serde(rename = "preferred_horizontal_resolution")]
+    PreferredHorizontalResolution,
+    /// Use simple discrete tactical action (primordial-style), with DAIDALUS only as detector.
+    DiscreteAction,
+}
+
+/// Trigger condition to start tactical maneuver.
+#[derive(
+    Resource, Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum DaaTriggerMode {
+    /// Trigger when alert level reaches configured threshold.
+    #[default]
+    AlertLevel,
+    /// Trigger when time-to-violation reaches threshold.
+    Ttv,
+}
+
 /// Runtime tuning for DAIDALUS C++ core + Rust reactive layer (from `sim_config.json`).
 #[derive(Resource, Clone, Copy, Debug, Serialize, Deserialize)]
 #[serde(default)]
@@ -99,6 +129,18 @@ pub struct DaidalusTuneConfig {
     /// intruders in range (combined horizontal bands via `alertLevelAllTraffic`).
     #[serde(default)]
     pub daa_intruder_eval_mode: DaaIntruderEvalMode,
+    /// Tactical action mode for ownship response once trigger condition is met.
+    #[serde(default)]
+    pub action_mode: DaaActionMode,
+    /// Trigger mode for starting ownship response.
+    #[serde(default)]
+    pub trigger_mode: DaaTriggerMode,
+    /// If `trigger_mode == ttv`, start response when `0 <= TTV <= threshold`.
+    pub ttv_threshold_s: f32,
+    /// If `action_mode == discrete_action`, heading deflection from route bearing.
+    pub discrete_turn_deg: f32,
+    /// If `action_mode == discrete_action`, hold response for this duration (s).
+    pub discrete_hold_s: f32,
 }
 
 fn default_final_approach_no_reactive_radius_m() -> f32 {
@@ -119,6 +161,11 @@ impl Default for DaidalusTuneConfig {
             max_cross_track_m: 350.0,
             final_approach_no_reactive_radius_m: 120.0,
             daa_intruder_eval_mode: DaaIntruderEvalMode::Pairwise,
+            action_mode: DaaActionMode::SafeBand,
+            trigger_mode: DaaTriggerMode::AlertLevel,
+            ttv_threshold_s: 10.0,
+            discrete_turn_deg: 60.0,
+            discrete_hold_s: 3.0,
         }
     }
 }
@@ -145,6 +192,7 @@ pub struct CollisionAlert {
     pub time_to_violation: f32,
     pub min_safe_heading: f32,
     pub max_safe_heading: f32,
+    pub preferred_resolution_heading: f32,
 }
 
 #[derive(Resource, Default)]
@@ -396,6 +444,7 @@ fn legacy_geom_alerts(
             time_to_violation: 0.0,
             min_safe_heading: 0.0,
             max_safe_heading: 0.0,
+            preferred_resolution_heading: 0.0,
         });
     }
     alerts
@@ -552,6 +601,7 @@ fn run_daidalus_evaluation(
                         time_to_violation: res_a.time_to_violation,
                         min_safe_heading: res_a.min_safe_heading,
                         max_safe_heading: res_a.max_safe_heading,
+                        preferred_resolution_heading: res_a.preferred_resolution_heading,
                     });
                     alerts.push(CollisionAlert {
                         drone_a: id_a.clone(),
@@ -562,6 +612,7 @@ fn run_daidalus_evaluation(
                         time_to_violation: res_b.time_to_violation,
                         min_safe_heading: res_b.min_safe_heading,
                         max_safe_heading: res_b.max_safe_heading,
+                        preferred_resolution_heading: res_b.preferred_resolution_heading,
                     });
                 }
             }
@@ -634,6 +685,7 @@ fn run_daidalus_evaluation(
                         time_to_violation: res.time_to_violation,
                         min_safe_heading: res.min_safe_heading,
                         max_safe_heading: res.max_safe_heading,
+                        preferred_resolution_heading: res.preferred_resolution_heading,
                     });
                 }
             }
@@ -836,6 +888,8 @@ fn reactive_avoidance_system(
         &crate::agents::FlightPlan,
         &crate::agents::FlightState,
         &crate::agents::Velocity,
+        &crate::agents::DronePerformance,
+        Option<&crate::agents::AircraftKind>,
     )>,
 ) {
     let mode = reactive_cfg
@@ -853,7 +907,7 @@ fn reactive_avoidance_system(
     ) {
         let agents: Vec<(String, Vec3)> = query
             .iter()
-            .map(|(d, t, _, _, _, _)| (d.id.clone(), t.translation))
+            .map(|(d, t, _, _, _, _, _, _)| (d.id.clone(), t.translation))
             .collect();
 
         let (daa_h, daa_v, evade_s) = match mode {
@@ -862,7 +916,7 @@ fn reactive_avoidance_system(
             _ => unreachable!(),
         };
 
-        for (drone, transform, mut avoidance, plan, _state, _vel) in query.iter_mut() {
+        for (drone, transform, mut avoidance, plan, _state, _vel, _perf, _kind) in query.iter_mut() {
             let pos = transform.translation;
             if pos.y < 5.0 {
                 continue;
@@ -902,10 +956,10 @@ fn reactive_avoidance_system(
     let tune = *daidalus_tune;
     let positions: HashMap<String, Vec3> = query
         .iter()
-        .map(|(d, t, _, _, _, _)| (d.id.clone(), t.translation))
+        .map(|(d, t, _, _, _, _, _, _)| (d.id.clone(), t.translation))
         .collect();
 
-    for (drone, transform, mut avoidance, plan, _state, vel) in query.iter_mut() {
+    for (drone, transform, mut avoidance, plan, _state, vel, perf, kind_opt) in query.iter_mut() {
         let pos = transform.translation;
 
         // Avoid fighting the same landing point: disable lateral Daidalus targets only on the
@@ -935,29 +989,95 @@ fn reactive_avoidance_system(
             avoidance.target = None;
             avoidance.until_time = 0.0;
         }
-        let in_alert = active_collisions
+        let candidates: Vec<&CollisionAlert> = active_collisions
             .alerts
             .iter()
             .filter(|a| {
                 let involved = a.drone_a == drone.id || a.drone_b == drone.id;
                 let ownship_ok = a.ownship_id.is_empty() || a.ownship_id == drone.id;
-                if !involved || !ownship_ok {
-                    return false;
-                }
-                if a.alert_level >= tune.min_alert_level {
-                    return true;
-                }
-                // Pair was only admitted when close or when either side had a DAIDALUS alert; the
-                // other ownship may still be alert_level 0 — still steer (fallback heading path).
-                (mode == crate::AvoidanceMode::Daidalus || mode == crate::AvoidanceMode::Fixed)
-                    && a.alert_level == 0
+                involved && ownship_ok
             })
-            .max_by_key(|a| a.alert_level);
+            .collect();
+        let in_alert = match tune.trigger_mode {
+            DaaTriggerMode::AlertLevel => candidates
+                .into_iter()
+                .filter(|a| {
+                    if a.alert_level >= tune.min_alert_level {
+                        return true;
+                    }
+                    // Pair was only admitted when close or when either side had a DAIDALUS alert; the
+                    // other ownship may still be alert_level 0 — still steer (fallback heading path).
+                    (mode == crate::AvoidanceMode::Daidalus || mode == crate::AvoidanceMode::Fixed)
+                        && a.alert_level == 0
+                })
+                .max_by_key(|a| a.alert_level),
+            DaaTriggerMode::Ttv => candidates
+                .into_iter()
+                .filter(|a| a.time_to_violation >= 0.0 && a.time_to_violation <= tune.ttv_threshold_s)
+                .min_by(|a, b| {
+                    a.time_to_violation
+                        .partial_cmp(&b.time_to_violation)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                }),
+        };
 
         if let Some(alert) = in_alert {
             let offset = match mode {
                 crate::AvoidanceMode::Fixed => Vec3::new(1.0, 0.0, 1.0).normalize() * 200.0,
                 crate::AvoidanceMode::Daidalus => {
+                    let kind_scale = match kind_opt.copied().unwrap_or(crate::agents::AircraftKind::Rotorcraft) {
+                        crate::agents::AircraftKind::FixedWing => 1.6_f32,
+                        crate::agents::AircraftKind::Rotorcraft => 1.0_f32,
+                    };
+                    let effective_offset = tune.evasion_offset_m * kind_scale;
+                    if tune.action_mode == DaaActionMode::DiscreteAction {
+                        let wp = plan
+                            .waypoints
+                            .get(plan.current_waypoint_index)
+                            .copied()
+                            .unwrap_or(pos + Vec3::Z);
+                        let base = bearing_xz(pos, wp);
+                        let other_id = if alert.drone_a == drone.id {
+                            alert.drone_b.as_str()
+                        } else {
+                            alert.drone_a.as_str()
+                        };
+                        let b_threat = positions
+                            .get(other_id)
+                            .map(|op| bearing_xz(pos, *op))
+                            .unwrap_or(base + FRAC_PI_2);
+                        let diff = (b_threat - base).rem_euclid(TAU);
+                        let turn = tune.discrete_turn_deg.to_radians();
+                        let evasion = if diff < PI { base - turn } else { base + turn };
+                        let dir = Vec3::new(evasion.sin(), 0.0, -evasion.cos()).normalize();
+                        dir * effective_offset
+                    } else if tune.action_mode == DaaActionMode::PreferredHorizontalResolution {
+                        let h = alert.preferred_resolution_heading;
+                        let dir = if h != 0.0 {
+                            Vec3::new(h.sin(), 0.0, -h.cos()).normalize()
+                        } else {
+                            // Fallback when C++ can't provide a preferred heading.
+                            let other_id = if alert.drone_a == drone.id {
+                                alert.drone_b.as_str()
+                            } else {
+                                alert.drone_a.as_str()
+                            };
+                            let away = positions
+                                .get(other_id)
+                                .map(|op| {
+                                    let mut v = pos - *op;
+                                    v.y = 0.0;
+                                    v
+                                })
+                                .unwrap_or(Vec3::ZERO);
+                            if away.length_squared() > 4.0 {
+                                away.normalize()
+                            } else {
+                                Vec3::new(1.0, 0.0, 1.0).normalize()
+                            }
+                        };
+                        dir * effective_offset
+                    } else {
                     // Horizontal-only offset (legacy fallback had Y≠0 and caused runaway climb).
                     if alert.min_safe_heading == 0.0 && alert.max_safe_heading == 0.0 {
                         // C++ leaves bands at 0 when alert_level==0; we still emit pairs for
@@ -977,14 +1097,14 @@ fn reactive_avoidance_system(
                             })
                             .unwrap_or(Vec3::ZERO);
                         if away.length_squared() > 4.0 {
-                            away.normalize() * tune.evasion_offset_m
+                            away.normalize() * effective_offset
                         } else {
                             let mut v = vel.0;
                             v.y = 0.0;
                             if v.length_squared() > 1e-2 {
-                                Vec3::new(-v.z, 0.0, v.x).normalize() * tune.evasion_offset_m
+                                Vec3::new(-v.z, 0.0, v.x).normalize() * effective_offset
                             } else {
-                                Vec3::new(1.0, 0.0, 1.0).normalize() * tune.evasion_offset_m
+                                Vec3::new(1.0, 0.0, 1.0).normalize() * effective_offset
                             }
                         }
                     } else {
@@ -1051,7 +1171,8 @@ fn reactive_avoidance_system(
                                 left
                             };
                         }
-                        dir * tune.evasion_offset_m
+                        dir * effective_offset
+                    }
                     }
                 }
                 crate::AvoidanceMode::None
@@ -1075,7 +1196,15 @@ fn reactive_avoidance_system(
                 }
                 avoidance.target = Some(target);
                 let dur = if mode == crate::AvoidanceMode::Daidalus {
-                    tune.evasion_duration_s.max(0.1)
+                    if tune.action_mode == DaaActionMode::DiscreteAction {
+                        tune.discrete_hold_s.max(0.1)
+                    } else {
+                        let turn_rate = perf.max_turn_rate_deg_s.max(1.0);
+                        // Lower turn-rate aircraft (e.g. fixed-wing) keep maneuver authority longer.
+                        tune.evasion_duration_s
+                            .max(0.1)
+                            .max(45.0 / turn_rate)
+                    }
                 } else {
                     0.5
                 };

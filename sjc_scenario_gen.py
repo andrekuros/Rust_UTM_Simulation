@@ -50,13 +50,18 @@ ALT_MIN, ALT_MAX = 30.0, 50.0
 IDLE_TIMER_INITIAL_MAX = 120.0  # first idle 0-120 s
 IDLE_TIMER_CYCLE = 300.0        # 5 min between missions
 MAX_MISSION_DISTANCE = 12_000.0 # metres (sc2+)
-SIM_DURATION = 28_800.0         # 8 hours
+SIM_DURATION = 3_600.0         # 1 hours
+
+# One clearance attempt per sim second on failure, like testeprimordial3/4 AWAITING_XTM_CLEARANCE.
+XTM_CLEARANCE_MAX_RETRIES = int(SIM_DURATION) + 1
 
 # xTM tube parameters per scenario
 XTM_PARAMS = {
     3:   {"sep_h": 30.0, "sep_v": 15.0, "time_buf": 0},
     "4a": {"sep_h": 22.0, "sep_v": 12.0, "time_buf": 0},
     "4b": {"sep_h": 30.0, "sep_v": 15.0, "time_buf": 2},
+    # 4C: mixed-fleet variant, same xTM policy as 4B.
+    "4c": {"sep_h": 30.0, "sep_v": 15.0, "time_buf": 2},
 }
 
 # Projection reference point (centre of SJC geofence)
@@ -249,8 +254,8 @@ def generate_missions(num_drones: int, scenario: str, seed: int = 42):
     and a dict of metrics (delays, ideal distances, etc).
     """
     random.seed(seed)
-    use_restricted = scenario in ("3", "4a", "4b")
-    use_xtm = scenario in ("3", "4a", "4b")
+    use_restricted = scenario in ("3", "4a", "4b", "4c")
+    use_xtm = scenario in ("3", "4a", "4b", "4c")
 
     xtm = None
     if use_xtm:
@@ -263,9 +268,101 @@ def generate_missions(num_drones: int, scenario: str, seed: int = 42):
     ideal_distances = []
     mission_counter = 0
 
+    # 4C fleet mix: heterogeneous rotorcraft + fixed-wing (+ heavier aircraft).
+    fleet_profiles = [
+        {
+            "name": "rotor_small",
+            "weight": 0.45,
+            "aircraft_kind": "Rotorcraft",
+            "performance": {
+                "mass_kg": 1.5,
+                "max_speed_mps": 15.3,
+                "min_speed_mps": 0.0,
+                "max_vertical_speed_mps": 3.0,
+                "max_turn_rate_deg_s": 45.0,
+                "battery_discharge_rate": 10.0,
+            },
+            "alt_range": (30.0, 50.0),
+            "max_mission_distance_m": MAX_MISSION_DISTANCE,
+        },
+        {
+            "name": "rotor_heavy",
+            "weight": 0.25,
+            "aircraft_kind": "Rotorcraft",
+            "performance": {
+                "mass_kg": 25.0,
+                "max_speed_mps": 12.0,
+                "min_speed_mps": 0.0,
+                "max_vertical_speed_mps": 2.0,
+                "max_turn_rate_deg_s": 35.0,
+                "battery_discharge_rate": 35.0,
+            },
+            "alt_range": (35.0, 65.0),
+            "max_mission_distance_m": MAX_MISSION_DISTANCE,
+        },
+        {
+            "name": "fixed_wing_light",
+            "weight": 0.20,
+            "aircraft_kind": "FixedWing",
+            "performance": {
+                "mass_kg": 12.0,
+                "max_speed_mps": 28.0,
+                "min_speed_mps": 14.0,
+                "max_vertical_speed_mps": 2.5,
+                "max_turn_rate_deg_s": 20.0,
+                "battery_discharge_rate": 22.0,
+            },
+            "alt_range": (60.0, 95.0),
+            "max_mission_distance_m": 18000.0,
+        },
+        {
+            "name": "fixed_wing_heavy",
+            "weight": 0.10,
+            "aircraft_kind": "FixedWing",
+            "performance": {
+                "mass_kg": 80.0,
+                "max_speed_mps": 38.0,
+                "min_speed_mps": 20.0,
+                "max_vertical_speed_mps": 1.8,
+                "max_turn_rate_deg_s": 12.0,
+                "battery_discharge_rate": 60.0,
+            },
+            "alt_range": (75.0, 120.0),
+            "max_mission_distance_m": 22000.0,
+        },
+    ]
+    profile_cum = []
+    if scenario == "4c":
+        c = 0.0
+        for p in fleet_profiles:
+            c += float(p["weight"])
+            profile_cum.append((c, p))
+
     for drone_idx in range(num_drones):
         phys_id = f"UAV_{drone_idx:05d}"
         current_tick = int(random.uniform(0, IDLE_TIMER_INITIAL_MAX))
+        profile = None
+        if scenario == "4c":
+            rpick = random.random()
+            for c, p in profile_cum:
+                if rpick <= c:
+                    profile = p
+                    break
+            if profile is None:
+                profile = fleet_profiles[-1]
+        perf = profile["performance"] if profile is not None else {
+            "mass_kg": 1.5,
+            "max_speed_mps": HORIZONTAL_SPEED,
+            "max_vertical_speed_mps": VERTICAL_SPEED,
+            "battery_discharge_rate": 10.0,
+        }
+        max_mission_dist_this = (
+            float(profile["max_mission_distance_m"])
+            if profile is not None
+            else MAX_MISSION_DISTANCE
+        )
+        speed_this = float(perf.get("max_speed_mps", HORIZONTAL_SPEED))
+        vspeed_this = float(perf.get("max_vertical_speed_mps", VERTICAL_SPEED))
         # Random starting position
         start_lat, start_lon = random_point_in_geofence(exclude_restricted=use_restricted)
         cur_lat, cur_lon = start_lat, start_lon
@@ -275,12 +372,16 @@ def generate_missions(num_drones: int, scenario: str, seed: int = 42):
             for _ in range(500):
                 dest_lat, dest_lon = random_point_in_geofence(exclude_restricted=use_restricted)
                 d = fast_distance_m(cur_lat, cur_lon, dest_lat, dest_lon)
-                if scenario != "1" and d > MAX_MISSION_DISTANCE:
+                if scenario != "1" and d > max_mission_dist_this:
                     continue
                 if d > 100:  # avoid trivially short missions
                     break
 
-            cruise_alt = random.uniform(ALT_MIN, ALT_MAX)
+            if profile is not None:
+                a0, a1 = profile["alt_range"]
+                cruise_alt = random.uniform(float(a0), float(a1))
+            else:
+                cruise_alt = random.uniform(ALT_MIN, ALT_MAX)
             ideal_dist = fast_distance_m(cur_lat, cur_lon, dest_lat, dest_lon)
 
             # Compute waypoints (Dijkstra routing for restricted-area scenarios)
@@ -297,19 +398,23 @@ def generate_missions(num_drones: int, scenario: str, seed: int = 42):
             delay_s = 0
             if xtm is not None:
                 traj = xtm.simulate_trajectory(
-                    current_tick, origin_xy, dest_xy, wp_xy, cruise_alt
+                    current_tick, origin_xy, dest_xy, wp_xy, cruise_alt, speed_this, vspeed_this
                 )
                 approved = xtm.request_flight_plan(
                     f"{phys_id}_m{mission_counter}", current_tick, traj
                 )
+                # Parity with testeprimordial3/4.py AWAITING_XTM_CLEARANCE: one retry per simulation
+                # second (global tick +1), delay_acumulado += 15 per failed attempt. Previously we
+                # used current_tick += 15 here, which made retries 15× sparser in time and strongly
+                # understated mean_xtm_delay_s vs Python (e.g. ~0.5 min vs ~3.5 min for scenario 3).
                 retry = 0
-                while not approved and retry < 200:
+                while not approved and retry < XTM_CLEARANCE_MAX_RETRIES:
                     delay_s += 15
-                    current_tick += 15
+                    current_tick += 1
                     if current_tick >= SIM_DURATION:
                         break
                     traj = xtm.simulate_trajectory(
-                        current_tick, origin_xy, dest_xy, wp_xy, cruise_alt
+                        current_tick, origin_xy, dest_xy, wp_xy, cruise_alt, speed_this, vspeed_this
                     )
                     approved = xtm.request_flight_plan(
                         f"{phys_id}_m{mission_counter}", current_tick, traj
@@ -332,28 +437,25 @@ def generate_missions(num_drones: int, scenario: str, seed: int = 42):
             rust_waypoints.append([dx, 0.0, dz])      # landing to ground
 
             # Estimate flight duration
-            flight_time = cruise_alt / VERTICAL_SPEED  # takeoff
+            flight_time = cruise_alt / max(vspeed_this, 0.1)  # takeoff
             prev = origin_xy
             for (wx, wz) in wp_xy:
                 seg = math.sqrt((wx - prev[0]) ** 2 + (wz - prev[1]) ** 2)
-                flight_time += seg / HORIZONTAL_SPEED
+                flight_time += seg / max(speed_this, 0.1)
                 prev = (wx, wz)
-            flight_time += cruise_alt / VERTICAL_SPEED  # landing
+            flight_time += cruise_alt / max(vspeed_this, 0.1)  # landing
 
             drone_cfg = {
                 "id": f"{phys_id}_m{mission_counter}",
-                "performance": {
-                    "mass_kg": 1.5,
-                    "max_speed_mps": HORIZONTAL_SPEED,
-                    "max_vertical_speed_mps": VERTICAL_SPEED,
-                    "battery_discharge_rate": 10.0,
-                },
+                "performance": {**perf},
                 "flight_plan": {
                     "waypoints": rust_waypoints,
                     "current_waypoint_index": 0,
                 },
                 "departure_time_s": float(current_tick),
             }
+            if profile is not None:
+                drone_cfg["aircraft_kind"] = profile["aircraft_kind"]
             drones_out.append(drone_cfg)
             mission_counter += 1
 
@@ -386,6 +488,7 @@ SCENARIO_AVOIDANCE = {
     "3": "None",
     "4a": "Python4a",
     "4b": "Python4b",
+    "4c": "Python4b",
 }
 
 # ── Output generation ───────────────────────────────────────────────────
@@ -451,7 +554,7 @@ def write_scenario(output_dir: str, scenario: str, num_drones: int, seed: int = 
 
 def main():
     parser = argparse.ArgumentParser(description="SJC xTM scenario generator")
-    parser.add_argument("--scenario", required=True, choices=["1", "2", "3", "4a", "4b"])
+    parser.add_argument("--scenario", required=True, choices=["1", "2", "3", "4a", "4b", "4c"])
     parser.add_argument("--num_drones", type=int, required=True)
     parser.add_argument("--output_dir", required=True)
     parser.add_argument("--seed", type=int, default=42)

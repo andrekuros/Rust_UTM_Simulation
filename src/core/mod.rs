@@ -6,8 +6,8 @@ use std::collections::{HashMap, HashSet};
 pub mod logger;
 pub mod route_metrics;
 pub use route_metrics::{
-    ideal_distance_m, MissionRouteMetrics, RouteIdealDistanceMode, RouteMetricsConfig,
-    RouteMetricsTiming,
+    ideal_distance_m, MissionCompleteProximityConfig, MissionRouteMetrics, RouteIdealDistanceMode,
+    RouteMetricsConfig, RouteMetricsTiming,
 };
 use logger::LoggerPlugin;
 
@@ -31,7 +31,13 @@ impl Plugin for CorePlugin {
         app.add_systems(Startup, configure_physics_hz);
         app.add_systems(
             FixedUpdate,
-            (physics_step, drone_movement_system, python4a_route_penalty_system).chain(),
+            (
+                physics_step,
+                drone_movement_system,
+                mission_proximity_complete_system,
+                python4a_route_penalty_system,
+            )
+                .chain(),
         );
     }
 }
@@ -40,6 +46,38 @@ fn configure_physics_hz(hz: Res<PhysicsHz>, mut fixed_time: ResMut<Time<Fixed>>)
     let rate = hz.0.max(0.1);
     *fixed_time = Time::<Fixed>::from_hz(rate);
     println!("Physics tick rate set to {} Hz (dt = {:.3}s)", rate, 1.0 / rate);
+}
+
+fn mission_proximity_complete_system(
+    proximity: Res<route_metrics::MissionCompleteProximityConfig>,
+    mut query: Query<(
+        &Transform,
+        &mut crate::agents::FlightPlan,
+        &mut crate::agents::Velocity,
+    )>,
+) {
+    if proximity.radius_m <= 0.0 {
+        return;
+    }
+    let r = proximity.radius_m;
+    for (transform, mut plan, mut vel) in query.iter_mut() {
+        let n = plan.waypoints.len();
+        if n == 0 || plan.current_waypoint_index >= n {
+            continue;
+        }
+        if plan.current_waypoint_index != n - 1 {
+            continue;
+        }
+        let last = plan.waypoints[n - 1];
+        let p = transform.translation;
+        let dx = p.x - last.x;
+        let dz = p.z - last.z;
+        let h = (dx * dx + dz * dz).sqrt();
+        if h <= r {
+            plan.current_waypoint_index = n;
+            vel.0 = Vec3::ZERO;
+        }
+    }
 }
 
 fn drone_movement_system(
@@ -90,7 +128,31 @@ fn drone_movement_system(
                 plan.current_waypoint_index += 1;
             }
         } else {
-            let direction = diff.normalize();
+            let mut direction = diff.normalize();
+            // Enforce aircraft turn-rate limits in horizontal plane for all modes.
+            let desired_h = Vec3::new(direction.x, 0.0, direction.z);
+            let curr_h = Vec3::new(velocity.0.x, 0.0, velocity.0.z);
+            if desired_h.length_squared() > 1e-8 && curr_h.length_squared() > 1e-8 {
+                let desired_hn = desired_h.normalize();
+                let curr_hn = curr_h.normalize();
+                let max_turn = perf.max_turn_rate_deg_s.to_radians() * dt;
+                let dot = curr_hn.dot(desired_hn).clamp(-1.0, 1.0);
+                let ang = dot.acos();
+                if ang > max_turn && max_turn > 1e-6 {
+                    let cross_y = curr_hn.x * desired_hn.z - curr_hn.z * desired_hn.x;
+                    let sign = if cross_y >= 0.0 { 1.0 } else { -1.0 };
+                    let c = (max_turn * sign).cos();
+                    let s = (max_turn * sign).sin();
+                    let turned = Vec3::new(
+                        curr_hn.x * c - curr_hn.z * s,
+                        0.0,
+                        curr_hn.x * s + curr_hn.z * c,
+                    )
+                    .normalize();
+                    direction.x = turned.x;
+                    direction.z = turned.z;
+                }
+            }
             let speed = if wind_on {
                 (perf.max_speed_mps + rng.gen_range(-1.5_f32..1.5_f32)).max(0.5)
             } else {

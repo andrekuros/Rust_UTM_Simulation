@@ -1,0 +1,82 @@
+{
+  "drones": [
+    {
+      "id": "E4_A",
+      "performance": {
+        "mass_kg": 1.5,
+        "max_speed_mps": 18.0,
+        "min_speed_mps": 0.0,
+        "max_vertical_speed_mps": 4.0,
+        "max_turn_rate_deg_s": 45.0,
+        "battery_discharge_rate": 12.0
+      },
+      "aircraft_kind": "Rotorcraft",
+      "departure_time_s": 0.0,
+      "flight_plan": {
+        "waypoints": [
+          [
+            -900.0,
+            0.0,
+            0.0
+          ],
+          [
+            -900.0,
+            60.0,
+            0.0
+          ],
+          [
+            900.0,
+            60.0,
+            0.0
+          ],
+          [
+            900.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "current_waypoint_index": 0
+      }
+    },
+    {
+      "id": "E4_B",
+      "performance": {
+        "mass_kg": 9.0,
+        "max_speed_mps": 34.0,
+        "min_speed_mps": 12.0,
+        "max_vertical_speed_mps": 2.5,
+        "max_turn_rate_deg_s": 22.0,
+        "battery_discharge_rate": 30.0
+      },
+      "aircraft_kind": "FixedWing",
+      "departure_time_s": 8.0,
+      "flight_plan": {
+        "waypoints": [
+          [
+            -1200.0,
+            0.0,
+            0.0
+          ],
+          [
+            -1200.0,
+            60.0,
+            0.0
+          ],
+          [
+            900.0,
+            60.0,
+            0.0
+          ],
+          [
+            900.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "current_waypoint_index": 0
+      }
+    }
+  ],
+  "obstacles": [],
+  "departure_landing_zones": []
+}
