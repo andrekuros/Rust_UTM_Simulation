@@ -5,3 +5,4 @@ target/
 
 experiments/xtm_primordial_rust/results/__pycache__/*
 experiments/encounter_battery/results/__pycache__/*  
+experiments/xtm_primordial_rust/__pycache__/*
