@@ -1,0 +1,41 @@
+{
+  "cfg": {
+    "experiment_type": "standard",
+    "scenario": "2",
+    "duration_s": 3600.0,
+    "physics_hz": 10.0,
+    "seed": 42,
+    "show_progress_bar": true,
+    "log_level": "metrics",
+    "log_interval_s": 5.0,
+    "cpp_distance_filter_m": 250.0,
+    "daa_intruder_eval_mode": "multi",
+    "daa_action_mode": "preferred_horizontal_resolution",
+    "daa_trigger_mode": "alert_level",
+    "daa_ttv_threshold_s": 10.0,
+    "daa_discrete_turn_deg": 60.0,
+    "daa_discrete_hold_s": 3.0,
+    "route_ideal_distance_mode": "chord",
+    "route_metrics_timing": "mission_complete",
+    "mission_complete_proximity_m": 0.0,
+    "no_daidalus_avoidance_mode": null,
+    "genome_path": "D:\\GITHUB\\Rust_UTM_Simulation\\experiments\\daidalus_ga\\best_genome.json",
+    "mode": "both",
+    "output_dir": "",
+    "num_drones": 200
+  },
+  "result": {
+    "arm": "daidalus",
+    "rc": 0,
+    "wall_seconds": 49.869,
+    "sim_seconds": 3600.0,
+    "realtime_x": 72.1891,
+    "running_speed_x": 72.1891,
+    "telemetry_bytes": 0,
+    "stderr_tail": "",
+    "variant_id": "daidalus_preferred_horizontal_resolution",
+    "num_drones": 200,
+    "daa_action_mode": "preferred_horizontal_resolution",
+    "wall_seconds_script": 49.872
+  }
+}
