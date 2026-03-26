@@ -21,27 +21,78 @@
             height: 100vh;
         }
 
-        #ui {
+        .side-panel {
             position: absolute;
-            bottom: 20px;
-            left: 20px;
-            right: 20px;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 15px;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            gap: 15px;
+            top: 48px;
+            bottom: 106px;
+            width: min(420px, 34vw);
+            background: rgba(0, 0, 0, 0.78);
+            border: 1px solid #444;
+            border-radius: 10px;
+            padding: 0;
+            overflow: visible;
+            z-index: 15;
+            transition: transform 0.22s ease;
+        }
+
+        .side-panel-inner {
+            padding: 12px;
+            max-height: calc(100vh - 130px);
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+
+        #optionsPanel {
+            left: 14px;
         }
 
         #controls {
+            right: 14px;
+        }
+
+        #optionsPanel.collapsed {
+            transform: translateX(calc(-100% - 22px));
+        }
+
+        #controls.collapsed {
+            transform: translateX(calc(100% + 22px));
+        }
+
+        #panelTopBar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 40;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 10px;
+            pointer-events: none;
+            gap: 8px;
+        }
+
+        #panelTopBar .panel-top-btn {
+            pointer-events: auto;
+            padding: 8px 14px;
+            font-size: 0.86em;
+            border-radius: 6px;
+            border: 1px solid #555;
+        }
+
+        #ui {
             position: absolute;
-            top: 20px;
-            left: 20px;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 15px;
-            border-radius: 8px;
-            max-width: min(420px, 92vw);
+            left: 14px;
+            right: 14px;
+            bottom: 14px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid #444;
+            border-radius: 10px;
+            padding: 10px 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 16;
         }
 
         #resultsPickerRow {
@@ -156,14 +207,148 @@
             color: #9ab;
             font-variant-numeric: tabular-nums;
         }
+
+        /* Foldable panels (controls + bottom bar) */
+        .fold-panel {
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 6px 8px;
+            background: rgba(30, 30, 30, 0.6);
+        }
+
+        .fold-summary {
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85em;
+            user-select: none;
+            list-style: none;
+            color: #ddd;
+        }
+
+        .fold-summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .fold-body {
+            margin-top: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .fold-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+
+        #ui .playback-main {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        #ui .playback-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
     </style>
 </head>
 
 <body>
     <div id="canvas-container"></div>
+    <div id="panelTopBar" aria-label="Show or hide side panels">
+        <button type="button" id="btnToggleOptions" class="panel-top-btn secondary" aria-expanded="true" title="Show or hide the options panel">Options</button>
+        <button type="button" id="btnToggleLoad" class="panel-top-btn secondary" aria-expanded="true" title="Show or hide the load panel">Load</button>
+    </div>
+    <div id="optionsPanel" class="side-panel">
+        <div class="side-panel-inner">
+        <h3 style="margin: 0 0 8px 0;">Options</h3>
+        <details class="fold-panel" open>
+            <summary class="fold-summary">Visual</summary>
+            <div class="fold-body">
+                <div class="fold-row">
+                    <input type="checkbox" id="showGrid" checked>
+                    <label style="font-size: 0.8em;" for="showGrid">Show grid</label>
+                </div>
+                <div class="fold-row">
+                    <input type="checkbox" id="showRestrictedAreas" checked>
+                    <label style="font-size: 0.8em;" for="showRestrictedAreas" title="SJC restricted area (from sjc_scenario_gen) or metadata.restricted_areas_latlon">Restricted areas</label>
+                </div>
+                <div class="fold-row" style="font-size: 0.78em; color: #ccc;">
+                    <span title="Quadcopter model only; pads, obstacles, and restricted areas stay true-to-scale">Drone scale</span>
+                    <input type="range" id="entityScale" min="0.3" max="4" step="0.05" value="1">
+                    <span id="entityScaleVal" style="font-variant-numeric: tabular-nums;">1.00x</span>
+                </div>
+            </div>
+        </details>
+        <details class="fold-panel" open>
+            <summary class="fold-summary">DAIDALUS</summary>
+            <div class="fold-body fold-row">
+                <div class="fold-row">
+                    <input type="checkbox" id="showSuggestions" checked>
+                    <label style="font-size: 0.8em;" for="showSuggestions">Show suggestions</label>
+                </div>
+                <div class="fold-row">
+                    <input type="checkbox" id="showSafeBand" checked>
+                    <label style="font-size: 0.8em;" for="showSafeBand" title="Horizontal NONE sector (transparent wedge)">Safe sector</label>
+                </div>
+            </div>
+        </details>
+        <details class="fold-panel" open>
+            <summary class="fold-summary">Routes</summary>
+            <div class="fold-body">
+                <div class="fold-row">
+                    <input type="checkbox" id="showRoutes" checked>
+                    <label style="font-size: 0.85em;" for="showRoutes"><strong>Routes</strong></label>
+                    <input type="checkbox" id="showPlanned" checked>
+                    <label style="font-size: 0.8em;" for="showPlanned">Planned (dashed)</label>
+                    <input type="checkbox" id="showExecuted" checked>
+                    <label style="font-size: 0.8em;" for="showExecuted">Executed (solid)</label>
+                </div>
+                <div class="fold-row" style="font-size: 0.78em; color: #ccc;">
+                    <span title="Sliding sim-time window around the playhead">Time window:</span>
+                    <label>− <input type="number" id="routeWinBehindMin" value="0.5" min="0" step="0.5" style="width: 3.2em; background: #333; color: #fff; border: 1px solid #555;"> min</label>
+                    <label>+ <input type="number" id="routeWinAheadMin" value="0.5" min="0" step="0.5" style="width: 3.2em; background: #333; color: #fff; border: 1px solid #555;"> min</label>
+                    <span title="Planned-route clipping speed">@</span>
+                    <label><input type="number" id="routeAssumedSpeedMps" value="15" min="1" step="1" style="width: 3.5em; background: #333; color: #fff; border: 1px solid #555;"> m/s</label>
+                </div>
+            </div>
+        </details>
+        <details class="fold-panel">
+            <summary class="fold-summary">Background map</summary>
+            <div class="fold-body">
+                <div class="fold-row">
+                    <input type="checkbox" id="showBackgroundMap">
+                    <label style="font-size: 0.8em;" for="showBackgroundMap">Enable</label>
+                    <select id="backgroundMapType" style="background: #333; color: #fff; border: 1px solid #555;">
+                        <option value="street" selected>Street</option>
+                        <option value="satellite">Satellite</option>
+                    </select>
+                </div>
+                <div class="fold-row" style="font-size: 0.78em; color: #ccc;">
+                    <span>Opacity</span>
+                    <input type="range" id="backgroundMapOpacity" min="0" max="1" value="0.35" step="0.01">
+                    <span id="backgroundMapOpacityVal" style="font-variant-numeric: tabular-nums;">0.35</span>
+                </div>
+                <div class="fold-row" style="font-size: 0.78em; color: #ccc;">
+                    <label>Center lat <input type="number" id="backgroundMapCenterLat" value="-23.21" step="0.01" style="width: 7.2em; background: #333; color: #fff; border: 1px solid #555;"></label>
+                    <label>Center lon <input type="number" id="backgroundMapCenterLon" value="-45.86" step="0.01" style="width: 7.2em; background: #333; color: #fff; border: 1px solid #555;"></label>
+                </div>
+            </div>
+        </details>
+        </div>
+    </div>
 
-    <div id="controls">
-        <h3>UTM Telemetry Viewer</h3>
+    <div id="controls" class="side-panel">
+        <div class="side-panel-inner">
+        <h3 style="margin: 0 0 8px 0;">Load</h3>
         <input type="file" id="fileInput" accept=".json,.ndjson,application/x-ndjson">
         <div id="status" style="margin-top: 10px; font-size: 0.9em; color: #aaa;">Load simulation_telemetry.ndjson (metadata line includes planned routes), or use the picker when served via <code style="font-size:0.85em">python3 viewer/results_server.py</code> (scans <code style="font-size:0.85em">experiments/</code>).
         </div>
@@ -184,15 +369,18 @@
                 <button type="button" id="btnLoadSelected">Load selected</button>
             </div>
         </div>
+        </div>
     </div>
 
     <div id="ui" style="display: none;">
-        <button id="playBtn">Play</button>
-        <div style="display: flex; flex-direction: column; flex-grow: 1;">
-            <input type="range" id="timeline" min="0" max="100" value="0" step="0.1">
-            <div id="timeDisplay" style="font-size: 0.8em; margin-top: 5px;">0.0s / 0.0s</div>
+        <div class="playback-main">
+            <button id="playBtn">Play</button>
+            <div style="display: flex; flex-direction: column; flex: 1 1 auto; min-width: 200px;">
+                <input type="range" id="timeline" min="0" max="100" value="0" step="0.1">
+                <div id="timeDisplay" style="font-size: 0.8em; margin-top: 4px;">0.0s / 0.0s</div>
+            </div>
         </div>
-        <div style="display: flex; align-items: center; gap: 5px;">
+        <div class="playback-right">
             <label style="font-size: 0.8em;">Speed:</label>
             <select id="playSpeed" style="background: #333; color: white; border: 1px solid #555;">
                 <option value="0.5">0.5x</option>
@@ -201,31 +389,6 @@
                 <option value="5">5x</option>
                 <option value="10">10x</option>
             </select>
-        </div>
-        <div style="display: flex; align-items: center; gap: 5px; margin-left: 10px;">
-            <input type="checkbox" id="showSuggestions" checked>
-            <label style="font-size: 0.8em;" for="showSuggestions">Show DAIDALUS Suggestions</label>
-        </div>
-        <div style="display: flex; align-items: center; gap: 5px; margin-left: 10px;">
-            <input type="checkbox" id="showSafeBand" checked>
-            <label style="font-size: 0.8em;" for="showSafeBand" title="Horizontal NONE sector (transparent wedge)">DAIDALUS safe sector</label>
-        </div>
-        <div style="display: flex; flex-direction: column; gap: 8px; margin-left: 10px; flex-grow: 1; min-width: 0;">
-            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                <input type="checkbox" id="showRoutes" checked>
-                <label style="font-size: 0.85em;" for="showRoutes"><strong>Routes</strong></label>
-                <input type="checkbox" id="showPlanned" checked>
-                <label style="font-size: 0.8em;" for="showPlanned">Planned (dashed)</label>
-                <input type="checkbox" id="showExecuted" checked>
-                <label style="font-size: 0.8em;" for="showExecuted">Executed (solid)</label>
-            </div>
-            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 0.78em; color: #ccc;">
-                <span title="Show only route data in a sliding sim-time window around the playhead">Time window (sim clock):</span>
-                <label>− <input type="number" id="routeWinBehindMin" value="0.5" min="0" step="0.5" style="width: 3.2em; background: #333; color: #fff; border: 1px solid #555;"> min</label>
-                <label>+ <input type="number" id="routeWinAheadMin" value="0.5" min="0" step="0.5" style="width: 3.2em; background: #333; color: #fff; border: 1px solid #555;"> min</label>
-                <span title="Used to turn the time window into approximate along-path length for planned-route clipping">@</span>
-                <label><input type="number" id="routeAssumedSpeedMps" value="15" min="1" step="1" style="width: 3.5em; background: #333; color: #fff; border: 1px solid #555;"> m/s</label>
-            </div>
         </div>
     </div>
 
@@ -246,7 +409,7 @@
         controls.enableDamping = true;
 
         // Visual Aids
-        const gridHelper = new THREE.GridHelper(10000, 100, 0x222222, 0x111111);
+        let gridHelper = new THREE.GridHelper(10000, 100, 0x222222, 0x111111);
         scene.add(gridHelper);
         scene.add(new THREE.AmbientLight(0x666666));
         const sun = new THREE.DirectionalLight(0xffffff, 0.8);
@@ -258,7 +421,11 @@
         let droneTimelines = new Map(); // drone_id -> array of { t, pos, alerts }
         let droneObjects = new Map();
         let metadata = null;
+        let gridBounds = null; // { minX, maxX, minZ, maxZ, centerX, centerZ, size }
         let padObjects = [];
+        /** drone_id -> { departure: Mesh, landing: Mesh } — pads visible only while that drone is airborne. */
+        let dronePads = new Map();
+        let restrictedAreaMeshes = [];
         let plannedRouteLines = [];
         let executedRouteLines = new Map();
         let isPlaying = false;
@@ -266,10 +433,413 @@
         let totalTime = 0;
         let playbackSpeed = 1;
         let clock = new THREE.Clock();
+        let entityScale = 1.0;
+
+        let backgroundMapMesh = null;
+        let backgroundMapTexture = null;
+        let lastBackgroundMapKey = null;
+
+        function updateGridHelperForMetadata(meta) {
+            if (!meta) return;
+
+            let minX = Infinity;
+            let maxX = -Infinity;
+            let minZ = Infinity;
+            let maxZ = -Infinity;
+
+            function considerXZ(x, z) {
+                if (!Number.isFinite(x) || !Number.isFinite(z)) return;
+                minX = Math.min(minX, x);
+                maxX = Math.max(maxX, x);
+                minZ = Math.min(minZ, z);
+                maxZ = Math.max(maxZ, z);
+            }
+
+            function considerPoint(p) {
+                if (!p) return;
+                // [x, y, z]
+                considerXZ(p[0], p[2]);
+            }
+
+            function considerRectZone(z) {
+                if (!z || !z.min || !z.max) return;
+                // RectZone min/max are [x, z] in the viewer's XZ-plane.
+                considerXZ(z.min[0], z.min[1]);
+                considerXZ(z.max[0], z.max[1]);
+            }
+
+            if (meta.drone_routes) {
+                for (const r of meta.drone_routes) {
+                    if (!r || !r.waypoints) continue;
+                    for (const wp of r.waypoints) {
+                        considerPoint(wp);
+                    }
+                }
+            }
+
+            if (meta.departure_points) meta.departure_points.forEach(considerPoint);
+            if (meta.landing_points) meta.landing_points.forEach(considerPoint);
+            if (meta.obstacles) meta.obstacles.forEach(obs => considerPoint(obs.position));
+            if (meta.departure_landing_zones) meta.departure_landing_zones.forEach(considerRectZone);
+
+            if (![minX, maxX, minZ, maxZ].every(Number.isFinite)) return;
+
+            const sizeX = maxX - minX;
+            const sizeZ = maxZ - minZ;
+            const maxSpan = Math.max(sizeX, sizeZ);
+            if (!Number.isFinite(maxSpan) || maxSpan <= 0) return;
+
+            const padding = Math.max(200, maxSpan * 0.08);
+            const finalSize = maxSpan + padding * 2;
+            const centerX = (minX + maxX) * 0.5;
+            const centerZ = (minZ + maxZ) * 0.5;
+
+            const divisions = Math.max(20, Math.min(200, Math.round(finalSize / 100)));
+
+            if (gridHelper) scene.remove(gridHelper);
+            gridHelper = new THREE.GridHelper(finalSize, divisions, 0x222222, 0x111111);
+            gridHelper.position.set(centerX, 0, centerZ);
+            scene.add(gridHelper);
+            applyGridVisibility();
+
+            gridBounds = { minX, maxX, minZ, maxZ, centerX, centerZ, size: finalSize };
+
+            // Resize the background map plane (if it exists); texture loading is handled elsewhere.
+            if (backgroundMapMesh) {
+                backgroundMapMesh.geometry.dispose();
+                backgroundMapMesh.geometry = new THREE.PlaneGeometry(finalSize, finalSize);
+                backgroundMapMesh.position.set(centerX, 0.002, centerZ);
+            }
+
+            return gridBounds;
+        }
+
+        // ── Background Map (SJC-aligned equirectangular projection) ─────────────────────────
+        const MAP_R_EARTH = 6_371_000.0;
+        const MAP_DEG_TO_RAD = Math.PI / 180.0;
+
+        function getBackgroundMapCenterLatLon() {
+            const latEl = document.getElementById('backgroundMapCenterLat');
+            const lonEl = document.getElementById('backgroundMapCenterLon');
+            const refLat = latEl ? parseFloat(latEl.value) : -23.21;
+            const refLon = lonEl ? parseFloat(lonEl.value) : -45.86;
+            return { refLat, refLon };
+        }
+
+        function simXZToLatLon(x, z, refLat, refLon) {
+            // Matches `sjc_scenario_gen.py`:
+            // x = (lon - REF_LON) * rad(1) * R_EARTH * cos(rad(REF_LAT))
+            // z = -(lat - REF_LAT) * rad(1) * R_EARTH
+            const lon = refLon + (x / (MAP_DEG_TO_RAD * MAP_R_EARTH * Math.cos(refLat * MAP_DEG_TO_RAD)));
+            const lat = refLat - (z / (MAP_DEG_TO_RAD * MAP_R_EARTH));
+            return { lat, lon };
+        }
+
+        function latLonToSimXZ(lat, lon, refLat, refLon) {
+            const x = (lon - refLon) * MAP_DEG_TO_RAD * MAP_R_EARTH * Math.cos(refLat * MAP_DEG_TO_RAD);
+            const z = -(lat - refLat) * MAP_DEG_TO_RAD * MAP_R_EARTH;
+            return { x, z };
+        }
+
+        /** RESTRICTED_AREA_LATLON in sjc_scenario_gen.py — used when metadata has no restricted_areas_latlon. */
+        const DEFAULT_SJC_RESTRICTED_LATLON = [
+            [-23.207232, -45.886221],
+            [-23.246663, -45.860730],
+            [-23.221120, -45.839731],
+            [-23.192784, -45.867164],
+        ];
+
+        function applyGridVisibility() {
+            if (!gridHelper) return;
+            const el = document.getElementById('showGrid');
+            gridHelper.visible = !el || el.checked;
+        }
+
+        function applyRestrictedAreasVisibility() {
+            const el = document.getElementById('showRestrictedAreas');
+            const show = !el || el.checked;
+            restrictedAreaMeshes.forEach(m => { m.visible = show; });
+        }
+
+        function getEntityScaleFromUI() {
+            const el = document.getElementById('entityScale');
+            const raw = el ? parseFloat(el.value) : 1.0;
+            if (!Number.isFinite(raw)) return 1.0;
+            return Math.max(0.3, Math.min(4.0, raw));
+        }
+
+        function syncEntityScaleLabel() {
+            const label = document.getElementById('entityScaleVal');
+            if (label) label.textContent = `${entityScale.toFixed(2)}x`;
+        }
+
+        function applyEntityScaleAll() {
+            droneObjects.forEach(droneGroup => droneGroup.scale.setScalar(entityScale));
+        }
+
+        function updateEntityScaleFromUI() {
+            entityScale = getEntityScaleFromUI();
+            syncEntityScaleLabel();
+            applyEntityScaleAll();
+        }
+
+        function buildLatLonPolygonMesh(latLonRing, refLat, refLon, y, color, opacity) {
+            const pts = [];
+            for (const pair of latLonRing) {
+                if (!pair || pair.length < 2) continue;
+                pts.push(latLonToSimXZ(pair[0], pair[1], refLat, refLon));
+            }
+            if (pts.length < 3) return null;
+            const verts = [];
+            for (const p of pts) verts.push(p.x, y, p.z);
+            const indices = [];
+            for (let i = 1; i < pts.length - 1; i++) indices.push(0, i, i + 1);
+            const geom = new THREE.BufferGeometry();
+            geom.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+            geom.setIndex(indices);
+            geom.computeVertexNormals();
+            const mat = new THREE.MeshLambertMaterial({
+                color,
+                transparent: true,
+                opacity,
+                side: THREE.DoubleSide,
+                depthWrite: false,
+            });
+            const mesh = new THREE.Mesh(geom, mat);
+            mesh.frustumCulled = false;
+            return mesh;
+        }
+
+        function clearRestrictedAreaMeshes() {
+            restrictedAreaMeshes.forEach(m => {
+                scene.remove(m);
+                if (m.geometry) m.geometry.dispose();
+                if (m.material) m.material.dispose();
+            });
+            restrictedAreaMeshes = [];
+        }
+
+        function setupRestrictedAreaMeshes() {
+            clearRestrictedAreaMeshes();
+            if (!metadata) return;
+            const show = document.getElementById('showRestrictedAreas') && document.getElementById('showRestrictedAreas').checked;
+            let rings = (metadata.restricted_areas_latlon && metadata.restricted_areas_latlon.length)
+                ? metadata.restricted_areas_latlon
+                : [DEFAULT_SJC_RESTRICTED_LATLON];
+            const { refLat, refLon } = getBackgroundMapCenterLatLon();
+            const y = 0.004;
+            for (const ring of rings) {
+                if (!ring || ring.length < 3) continue;
+                const mesh = buildLatLonPolygonMesh(ring, refLat, refLon, y, 0xcc4444, 0.38);
+                if (!mesh) continue;
+                mesh.visible = show;
+                scene.add(mesh);
+                restrictedAreaMeshes.push(mesh);
+            }
+        }
+
+        function clearDronePads() {
+            dronePads.forEach(pads => {
+                if (pads.departure) {
+                    scene.remove(pads.departure);
+                    pads.departure.geometry.dispose();
+                    pads.departure.material.dispose();
+                }
+                if (pads.landing) {
+                    scene.remove(pads.landing);
+                    pads.landing.geometry.dispose();
+                    pads.landing.material.dispose();
+                }
+            });
+            dronePads.clear();
+        }
+
+        function createDronePadMesh(pos, color) {
+            const pad = new THREE.Mesh(
+                new THREE.CircleGeometry(30, 32),
+                new THREE.MeshBasicMaterial({
+                    color,
+                    side: THREE.DoubleSide,
+                    transparent: true,
+                    opacity: 0.6,
+                    depthWrite: false,
+                })
+            );
+            pad.rotation.x = Math.PI / 2;
+            pad.position.set(pos[0], 1, pos[2]);
+            pad.visible = false;
+            scene.add(pad);
+            return pad;
+        }
+
+        function setupDronePadsFromRoutes() {
+            clearDronePads();
+            if (!metadata || !metadata.drone_routes) return;
+            for (const r of metadata.drone_routes) {
+                if (!r || !r.id || !r.waypoints || r.waypoints.length < 1) continue;
+                const w = r.waypoints;
+                const depPos = w[0];
+                const landPos = w[w.length - 1];
+                const departure = createDronePadMesh(depPos, 0x00ff00);
+                const landing = createDronePadMesh(landPos, 0x0088ff);
+                dronePads.set(r.id, { departure, landing });
+            }
+        }
+
+        function updateDronePadsVisibility(time) {
+            dronePads.forEach((pads, id) => {
+                const tl = droneTimelines.get(id);
+                const flying = !!(tl && isDroneAirborneAt(tl, time));
+                pads.departure.visible = flying;
+                pads.landing.visible = flying;
+            });
+        }
+
+        function getBackgroundMapOpacity() {
+            const el = document.getElementById('backgroundMapOpacity');
+            const v = el ? parseFloat(el.value) : 0.35;
+            return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0.35;
+        }
+
+        function getBackgroundMapEnabled() {
+            const el = document.getElementById('showBackgroundMap');
+            return !!(el && el.checked);
+        }
+
+        function computeBackgroundMapBboxForGrid() {
+            if (!gridBounds) return null;
+            const { refLat, refLon } = getBackgroundMapCenterLatLon();
+
+            const corners = [
+                simXZToLatLon(gridBounds.minX, gridBounds.minZ, refLat, refLon),
+                simXZToLatLon(gridBounds.minX, gridBounds.maxZ, refLat, refLon),
+                simXZToLatLon(gridBounds.maxX, gridBounds.minZ, refLat, refLon),
+                simXZToLatLon(gridBounds.maxX, gridBounds.maxZ, refLat, refLon),
+            ];
+
+            let minLat = Infinity, maxLat = -Infinity, minLon = Infinity, maxLon = -Infinity;
+            for (const c of corners) {
+                minLat = Math.min(minLat, c.lat);
+                maxLat = Math.max(maxLat, c.lat);
+                minLon = Math.min(minLon, c.lon);
+                maxLon = Math.max(maxLon, c.lon);
+            }
+
+            if (![minLat, maxLat, minLat, maxLat, minLon, maxLon].every(Number.isFinite)) return null;
+            return { minLat, maxLat, minLon, maxLon };
+        }
+
+        function buildBackgroundMapUrl(mapType, bbox) {
+            if (!bbox) return null;
+            const sizePx = 1024;
+
+            const baseUrl = mapType === 'satellite'
+                ? 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export'
+                : 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/export';
+
+            // ArcGIS export uses: bbox=minLon,minLat,maxLon,maxLat
+            return `${baseUrl}?bbox=${bbox.minLon},${bbox.minLat},${bbox.maxLon},${bbox.maxLat}&bboxSR=4326&size=${sizePx},${sizePx}&format=png32&transparent=true&f=image`;
+        }
+
+        function ensureBackgroundMapMesh() {
+            const enabled = getBackgroundMapEnabled();
+            const opacity = getBackgroundMapOpacity();
+
+            if (!gridBounds) return;
+
+            if (!backgroundMapMesh) {
+                const geom = new THREE.PlaneGeometry(gridBounds.size, gridBounds.size);
+                const mat = new THREE.MeshBasicMaterial({
+                    color: 0xffffff,
+                    transparent: true,
+                    opacity: opacity,
+                    depthWrite: false,
+                });
+                backgroundMapMesh = new THREE.Mesh(geom, mat);
+                // Rotate into XZ plane.
+                backgroundMapMesh.rotation.x = -Math.PI / 2;
+                backgroundMapMesh.position.set(gridBounds.centerX, 0.002, gridBounds.centerZ);
+                // Draw behind the grid/wires.
+                backgroundMapMesh.renderOrder = -2;
+                scene.add(backgroundMapMesh);
+            } else {
+                backgroundMapMesh.material.opacity = opacity;
+                backgroundMapMesh.visible = enabled;
+            }
+        }
+
+        function refreshBackgroundMapTextureIfEnabled(forceReload = false) {
+            if (!getBackgroundMapEnabled()) {
+                if (backgroundMapMesh) backgroundMapMesh.visible = false;
+                return;
+            }
+            if (!gridBounds) return;
+
+            const mapTypeEl = document.getElementById('backgroundMapType');
+            const mapType = mapTypeEl ? mapTypeEl.value : 'street';
+            const bbox = computeBackgroundMapBboxForGrid();
+            if (!bbox) return;
+
+            const key = `${mapType}:${bbox.minLat.toFixed(5)}:${bbox.minLon.toFixed(5)}:${bbox.maxLat.toFixed(5)}:${bbox.maxLon.toFixed(5)}`;
+            if (!forceReload && key === lastBackgroundMapKey && backgroundMapTexture) {
+                return;
+            }
+            lastBackgroundMapKey = key;
+
+            ensureBackgroundMapMesh();
+            if (!backgroundMapMesh) return;
+
+            const url = buildBackgroundMapUrl(mapType, bbox);
+            if (!url) return;
+
+            // Dispose old texture to avoid memory growth across reloads.
+            if (backgroundMapTexture) {
+                backgroundMapTexture.dispose();
+                backgroundMapTexture = null;
+            }
+
+            const loader = new THREE.TextureLoader();
+            loader.crossOrigin = 'anonymous';
+
+            // While loading, keep the mesh visible but reuse old material opacity.
+            backgroundMapMesh.visible = true;
+            backgroundMapMesh.material.opacity = getBackgroundMapOpacity();
+
+            loader.load(
+                url,
+                (texture) => {
+                    backgroundMapTexture = texture;
+                    backgroundMapMesh.material.map = backgroundMapTexture;
+                    backgroundMapMesh.material.needsUpdate = true;
+                    backgroundMapMesh.visible = true;
+                },
+                undefined,
+                (err) => {
+                    // Map tiles can fail due to CORS/network/provider limits.
+                    console.warn('Background map texture failed to load:', err);
+                }
+            );
+        }
+
+        function syncBackgroundMapOpacityUI() {
+            const el = document.getElementById('backgroundMapOpacity');
+            const valEl = document.getElementById('backgroundMapOpacityVal');
+            if (!el || !valEl) return;
+            valEl.textContent = parseFloat(el.value).toFixed(2);
+            if (backgroundMapMesh) {
+                backgroundMapMesh.material.opacity = getBackgroundMapOpacity();
+            }
+        }
+
+        function applyBackgroundMapVisibility() {
+            if (!backgroundMapMesh) return;
+            backgroundMapMesh.visible = getBackgroundMapEnabled();
+        }
 
         // Procedural Quadcopter Model
         function createQuadcopter() {
             const group = new THREE.Group();
+            group.scale.setScalar(entityScale);
 
             const body = new THREE.Mesh(
                 new THREE.BoxGeometry(20, 5, 20),
@@ -791,10 +1361,15 @@
                     dashSize: 45,
                     gapSize: 28,
                     transparent: true,
-                    opacity: 0.78
+                    opacity: 0.78,
+                    // Prevent depth-buffer "fight" with the ground grid when the camera angle changes.
+                    depthWrite: false
                 });
                 const line = new THREE.Line(geom, mat);
                 line.computeLineDistances();
+                geom.computeBoundingSphere();
+                // We update geometry every frame, so disable frustum culling to avoid angle-dependent disappearance.
+                line.frustumCulled = false;
                 line.userData.droneId = r.id;
                 line.userData.plannedPts = pts;
                 line.visible = false;
@@ -866,6 +1441,7 @@
                     return;
                 }
                 line.geometry.setFromPoints(slice);
+                line.geometry.computeBoundingSphere();
                 line.computeLineDistances();
                 line.visible = true;
             });
@@ -901,13 +1477,18 @@
                     const mat = new THREE.LineBasicMaterial({
                         color: colorForDroneId(id),
                         transparent: true,
-                        opacity: 0.88
+                        opacity: 0.88,
+                        // Prevent depth-buffer "fight" with the ground grid when the camera angle changes.
+                        depthWrite: false
                     });
                     line = new THREE.Line(geom, mat);
+                    // We update geometry every frame, so disable frustum culling to avoid angle-dependent disappearance.
+                    line.frustumCulled = false;
                     scene.add(line);
                     executedRouteLines.set(id, line);
                 }
                 line.geometry.setFromPoints(pts);
+                line.geometry.computeBoundingSphere();
                 line.visible = true;
             });
         }
@@ -921,10 +1502,11 @@
             clearStaticObjects();
             clearRouteLines();
             if (metadata) {
-                if (metadata.departure_points) metadata.departure_points.forEach(p => createPad(p, 0x00ff00));
-                if (metadata.landing_points) metadata.landing_points.forEach(p => createPad(p, 0x0088ff));
+                updateGridHelperForMetadata(metadata);
                 if (metadata.obstacles) metadata.obstacles.forEach(obs => createObstacle(obs));
                 setupPlannedRoutes();
+                setupDronePadsFromRoutes();
+                setupRestrictedAreaMeshes();
             }
 
             const timeline = document.getElementById('timeline');
@@ -936,20 +1518,12 @@
             currentTime = 0;
             updateUI();
             renderFrame(0);
-        }
-
-        function createPad(pos, color) {
-            const pad = new THREE.Mesh(
-                new THREE.CircleGeometry(30, 32),
-                new THREE.MeshBasicMaterial({ color: color, side: THREE.DoubleSide, transparent: true, opacity: 0.6 })
-            );
-            pad.rotation.x = Math.PI / 2;
-            pad.position.set(pos[0], 1, pos[2]);
-            scene.add(pad);
-            padObjects.push(pad);
+            refreshBackgroundMapTextureIfEnabled(true);
         }
 
         function clearStaticObjects() {
+            clearDronePads();
+            clearRestrictedAreaMeshes();
             padObjects.forEach(obj => scene.remove(obj));
             padObjects = [];
         }
@@ -1116,6 +1690,7 @@
 
         // --- 4. Render Logic ---
         function renderFrame(time) {
+            updateDronePadsVisibility(time);
             updateExecutedRoutes(time);
             updatePlannedRoutesDynamic(time);
             droneTimelines.forEach((timeline, id) => {
@@ -1204,6 +1779,11 @@
         document.getElementById('playSpeed').addEventListener('change', (e) => {
             playbackSpeed = parseFloat(e.target.value);
         });
+        const entityScaleEl = document.getElementById('entityScale');
+        if (entityScaleEl) {
+            entityScaleEl.addEventListener('input', updateEntityScaleFromUI);
+            entityScaleEl.addEventListener('change', updateEntityScaleFromUI);
+        }
 
         function onRouteOptionChange() {
             if (document.getElementById('showPlanned').checked && plannedRouteLines.length === 0 && metadata && metadata.drone_routes) {
@@ -1217,11 +1797,88 @@
         document.getElementById('showExecuted').addEventListener('change', onRouteOptionChange);
         document.getElementById('showSuggestions').addEventListener('change', () => renderFrame(currentTime));
         document.getElementById('showSafeBand').addEventListener('change', () => renderFrame(currentTime));
+        const showGridEl = document.getElementById('showGrid');
+        if (showGridEl) showGridEl.addEventListener('change', applyGridVisibility);
+        const showRestrictedEl = document.getElementById('showRestrictedAreas');
+        if (showRestrictedEl) showRestrictedEl.addEventListener('change', applyRestrictedAreasVisibility);
         ['routeWinBehindMin', 'routeWinAheadMin', 'routeAssumedSpeedMps'].forEach(id => {
             const el = document.getElementById(id);
             el.addEventListener('change', onRouteOptionChange);
             el.addEventListener('input', onRouteOptionChange);
         });
+
+        // Background map UI
+        syncBackgroundMapOpacityUI();
+        applyBackgroundMapVisibility();
+
+        const showBackgroundMapEl = document.getElementById('showBackgroundMap');
+        const backgroundMapTypeEl = document.getElementById('backgroundMapType');
+        const backgroundMapOpacityEl = document.getElementById('backgroundMapOpacity');
+        const backgroundMapCenterLatEl = document.getElementById('backgroundMapCenterLat');
+        const backgroundMapCenterLonEl = document.getElementById('backgroundMapCenterLon');
+
+        if (showBackgroundMapEl) {
+            showBackgroundMapEl.addEventListener('change', () => {
+                applyBackgroundMapVisibility();
+                refreshBackgroundMapTextureIfEnabled(true);
+            });
+        }
+
+        if (backgroundMapTypeEl) {
+            backgroundMapTypeEl.addEventListener('change', () => refreshBackgroundMapTextureIfEnabled(true));
+        }
+
+        if (backgroundMapOpacityEl) {
+            backgroundMapOpacityEl.addEventListener('input', () => syncBackgroundMapOpacityUI());
+        }
+
+        if (backgroundMapCenterLatEl) {
+            backgroundMapCenterLatEl.addEventListener('change', () => {
+                setupRestrictedAreaMeshes();
+                refreshBackgroundMapTextureIfEnabled(true);
+            });
+        }
+        if (backgroundMapCenterLonEl) {
+            backgroundMapCenterLonEl.addEventListener('change', () => {
+                setupRestrictedAreaMeshes();
+                refreshBackgroundMapTextureIfEnabled(true);
+            });
+        }
+
+        const optionsPanelEl = document.getElementById('optionsPanel');
+        const controlsEl = document.getElementById('controls');
+        const btnToggleOptions = document.getElementById('btnToggleOptions');
+        const btnToggleLoad = document.getElementById('btnToggleLoad');
+
+        function syncTopPanelButtons() {
+            if (!optionsPanelEl || !controlsEl) return;
+            const optCollapsed = optionsPanelEl.classList.contains('collapsed');
+            const loadCollapsed = controlsEl.classList.contains('collapsed');
+            if (btnToggleOptions) {
+                btnToggleOptions.setAttribute('aria-expanded', (!optCollapsed).toString());
+                btnToggleOptions.title = optCollapsed ? 'Show options panel' : 'Hide options panel';
+            }
+            if (btnToggleLoad) {
+                btnToggleLoad.setAttribute('aria-expanded', (!loadCollapsed).toString());
+                btnToggleLoad.title = loadCollapsed ? 'Show load panel' : 'Hide load panel';
+            }
+        }
+
+        if (btnToggleOptions && optionsPanelEl) {
+            btnToggleOptions.addEventListener('click', () => {
+                optionsPanelEl.classList.toggle('collapsed');
+                syncTopPanelButtons();
+            });
+        }
+
+        if (btnToggleLoad && controlsEl) {
+            btnToggleLoad.addEventListener('click', () => {
+                controlsEl.classList.toggle('collapsed');
+                syncTopPanelButtons();
+            });
+        }
+
+        syncTopPanelButtons();
 
         document.getElementById('timeline').addEventListener('input', (e) => {
             isPlaying = false;
@@ -1249,6 +1906,8 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
+        updateEntityScaleFromUI();
+        applyGridVisibility();
         animate();
     </script>
 </body>
