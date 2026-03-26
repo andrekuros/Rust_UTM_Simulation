@@ -1,19 +1,19 @@
 {
-  "completed_missions": 139,
-  "daa_alert_pairs": 81,
+  "completed_missions": 511,
+  "daa_alert_pairs": 3366,
   "incomplete_missions_by_reason": {
-    "active_cruise": 68,
-    "active_takeoff": 1,
-    "not_spawned": 300
+    "active_cruise": 486,
+    "active_takeoff": 3,
+    "not_spawned": 1433
   },
-  "incomplete_missions_total": 369,
-  "macproxy_active_pairs": 0,
-  "macproxy_count": 1,
+  "incomplete_missions_total": 1922,
+  "macproxy_active_pairs": 5,
+  "macproxy_count": 508,
   "mission_count_balance_ok": true,
   "route_ideal_distance_mode": "chord",
-  "route_inefficiency_pct": 4.5731558063162625,
+  "route_inefficiency_pct": 30.220222263590202,
   "route_metrics_timing": "mission_complete",
-  "total_ideal_distance_m": 851878.831817627,
-  "total_real_distance_m": 890836.5780776739,
-  "total_scheduled_missions": 508
+  "total_ideal_distance_m": 3036368.802947998,
+  "total_real_distance_m": 3953966.203941196,
+  "total_scheduled_missions": 2433
 }

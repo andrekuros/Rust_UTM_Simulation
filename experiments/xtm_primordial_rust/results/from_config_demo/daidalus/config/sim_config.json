@@ -25,8 +25,8 @@
       "action_mode": "safe_band",
       "trigger_mode": "ttv",
       "ttv_threshold_s": 20.0,
-      "discrete_turn_deg": 60.0,
-      "discrete_hold_s": 3.0
+      "discrete_turn_deg": 90.0,
+      "discrete_hold_s": 8.0
     },
     "route_ideal_distance_mode": "chord",
     "route_metrics_timing": "mission_complete",

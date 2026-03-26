@@ -1378,11 +1378,14 @@
             }
         }
 
-        /** Executed samples in [time − behind, time + ahead] (ahead only affects eligibility; samples are ≤ time). */
+        /** Executed samples in [time − behind, time] (ahead only affects eligibility; samples are <= time). */
         function pointsForExecutedWindowed(timeline, time, behindS, aheadS) {
             if (!timeline || timeline.length === 0) return [];
             const tLo = time - behindS;
-            const tHi = time + aheadS;
+            // IMPORTANT: executed route should not include future telemetry.
+            // `aheadS` is only used to decide whether the drone overlaps the sim-time window,
+            // but for drawing we clamp to `time` so the polyline doesn't jump toward a future point.
+            const tHi = time;
             const out = [];
             for (let i = 0; i < timeline.length; i++) {
                 const ev = timeline[i];

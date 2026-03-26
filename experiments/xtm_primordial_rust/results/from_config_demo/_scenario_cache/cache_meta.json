@@ -1,6 +1,6 @@
 {
-  "scenario": "2",
-  "num_drones": 100,
+  "scenario": "4b",
+  "num_drones": 500,
   "seed": 42,
   "physics_hz": 10.0,
   "log_level": "full",
