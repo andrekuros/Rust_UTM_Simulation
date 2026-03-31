@@ -1,0 +1,20 @@
+{
+  "completed_missions": 1344,
+  "daa_alert_pairs": 26620,
+  "incomplete_missions_by_reason": {
+    "active_cruise": 1084,
+    "active_landing": 2,
+    "active_takeoff": 3,
+    "not_spawned": 0
+  },
+  "incomplete_missions_total": 1089,
+  "macproxy_active_pairs": 119,
+  "macproxy_count": 18521,
+  "mission_count_balance_ok": true,
+  "route_ideal_distance_mode": "chord",
+  "route_inefficiency_pct": 99.85392547292189,
+  "route_metrics_timing": "mission_complete",
+  "total_ideal_distance_m": 8274392.518493652,
+  "total_real_distance_m": 16536698.257247329,
+  "total_scheduled_missions": 2433
+}

@@ -1,0 +1,21 @@
+{
+  "created_utc": "20260331_020048",
+  "duration_s": 3600.0,
+  "num_drones": 500,
+  "seed": 42,
+  "physics_hz": 1.0,
+  "genome_path": "W:\\GitHub\\Rust_UTM_Simulation\\experiments\\daidalus_ga\\best_genome.json",
+  "scenarios": [
+    "1",
+    "2",
+    "3",
+    "4a",
+    "4b",
+    "4c"
+  ],
+  "modes": [
+    "no_daidalus",
+    "daidalus"
+  ],
+  "workers": 8
+}

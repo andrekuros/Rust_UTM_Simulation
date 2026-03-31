@@ -1,0 +1,467 @@
+% ============================================================
+% SECTION: High-Fidelity Tactical Logic Validation (HTLV)
+% ============================================================
+
+\subsection{High-Fidelity Tactical Logic Validation (HTLV)}
+\label{sec:htlv_architecture}
+
+Following the \gls{msla} conceptual experiments, this section presents the \gls{htlv}: a
+prototype high-fidelity environment incorporating NASA's DAIDALUS as a modeled \gls{rwc}
+reasoning engine. The \gls{htlv} evaluates kinematic alignment with RTCA DO-365B~\cite{rtca_do365b}
+and ASTM F3442~\cite{astm_f3442} separation guidelines through precision kinematic updates at
+10\,Hz (physics step), with alert-level evaluation running continuously over a simulated 1-hour
+mission window. As a research initiative, it serves to investigate rather than certify complete
+operational compliance.
+
+\textbf{Methodological Note:} To ensure the precise sub-second physics iteration required for
+DAIDALUS validation, this tactical micro-simulator was custom-developed in a
+high-performance compiled language. It remained in active research development throughout
+Point D and is designed to become a candidate high-performance UTM/\gls{xtm} research tool
+for ITA and \gls{icea}.
+
+% -----------------------------------------------------------
+\subsubsection{HTLV Architecture and Execution Engine}
+% -----------------------------------------------------------
+
+The \gls{htlv} operates as a unified simulation runner coupling standard geometric avoidance
+schemes with advanced \gls{rwc} algorithms:
+
+\begin{itemize}
+    \item \textbf{Simulator Core:} Built on a high-performance deterministic engine, scenarios
+    are generated from structured configuration files. A custom 3-D spatial grid algorithm
+    accelerates neighbor search and evaluation of the 20\,m horizontal / 10\,m vertical
+    MACproxy separation threshold.
+
+    \item \textbf{DAIDALUS Bridge:} The NASA \gls{daa} logic is compiled as a native module
+    directly integrated into the simulation pipeline. The engine continuously queries DAIDALUS
+    for relative aircraft pairings, extracting alert levels, time-to-violation (TTV), and
+    horizontal safe-heading resolution bands.
+
+    \item \textbf{Monitoring vs.\ Reactive Steering:} The setup physically decouples the
+    \emph{DAA Monitoring System} (which populates active conflict logs) from the
+    \emph{Reactive Avoidance System} (which translates DAIDALUS guidance bands into physical
+    control inputs). This separation enables distinct validation of standard alerts
+    (Preventive, Corrective, Warning) independent of the aircraft's kinematic evasive
+    response.
+\end{itemize}
+
+% -----------------------------------------------------------
+\subsubsection{Methodological Comparison: Macro-Scale vs.\ High-Fidelity}
+\label{subsec:rust_vs_python}
+% -----------------------------------------------------------
+
+Table~\ref{tab:rust_comparison} highlights the complementary strengths of the two modelling
+approaches used throughout the experimental campaign.
+
+\begin{table}[H]
+\centering
+\caption{Macro-Scale Simulator vs.\ High-Fidelity Tactical Engine}
+\label{tab:rust_comparison}
+\renewcommand{\arraystretch}{1.2}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lp{6.5cm}p{6.5cm}}
+\toprule
+\textbf{Dimension} & \textbf{Macro-Scale (MSLA)} & \textbf{High-Fidelity Engine (HTLV)} \\
+\midrule
+Physics Engine    & Simple kinematics (dt = 1\,s)            & High-performance deterministic engine (10\,Hz) \\
+\gls{daa} Engine  & Custom heuristic (proximity-based)        & NASA DAIDALUS (DO-365B aligned) \\
+Alert Information & Binary (Threat / No Threat)               & Multi-level (Preventive / Corrective / Warning), TTV, Heading Bands \\
+Avoidance Maneuver & Fixed angular (60--90°) heuristic        & DAIDALUS Bands + Horiz./Vert.\ offsets \\
+Scale             & Up to 2\,000 concurrent UAS               & Up to 1\,000 concurrent UAS (1-hour window) \\
+Simulation Speed  & Near-realtime (up to 1\,600$\times$)      & Dependent on conflict graph size (1--6\,500$\times$) \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=1.0\textwidth]{Docs_ref/Rust_sim/Saturated_500_SJC.png}
+    \caption{Visualization of a saturated airspace simulation around SJC Airport with $N=500$
+    simultaneous drones operating under DAIDALUS guidance. The trajectory entanglement visible
+    in the dense corridor illustrates the combinatorial interaction growth that drives the
+    scalability limits detailed in Section~\ref{sec:scen2_sweep}.}
+    \label{fig:rust_htlv_viewer}
+\end{figure}
+
+% -----------------------------------------------------------
+\subsubsection{Complementary Strengths and Integration Path}
+\label{subsec:strengths_integration}
+% -----------------------------------------------------------
+
+The \textbf{MACproxy Macro-layer} effectively assesses the three-layer conflict management
+model defined in the \gls{conops} --- Strategic (\gls{xtm}), Tactical (\gls{daa}), and Collision
+Avoidance. It utilises real SJC geography and produces metrics directly applicable to capacity
+scoping with large drone populations.
+
+The \textbf{HTLV Micro-layer} provides the increased fidelity level necessary to investigate
+algorithmic alignment with international guidelines such as RTCA DO-365B~\cite{rtca_do365b}
+and ASTM F3442~\cite{astm_f3442}. Its localized physics engine resolves finer kinematic details
+during simulated \gls{rwc} avoidance maneuvers.
+
+% -----------------------------------------------------------
+\subsubsection{DAIDALUS Core Logic}
+\label{sec:daidalus}
+% -----------------------------------------------------------
+
+The DAIDALUS algorithm constitutes the mathematical backbone of the \gls{htlv}. Within the
+\gls{daa} layered architecture, DAIDALUS implements the \gls{rwc} function as defined in
+RTCA DO-365B~\cite{rtca_do365b}: it transforms surveillance data into maneuver guidance
+(\emph{Bands}) for the \gls{rpic} or autonomous system, with the objective of maintaining the
+Well Clear separation volume.
+
+\textbf{Justification for Evaluation:} DAIDALUS was selected for integration because it
+serves as the globally recognised aviation-authority reference implementation for DO-365B.
+Evaluating it inside the SIMUA parameters answers a critical regulatory question:
+\emph{Can standardised mathematical compliance models developed for sparse airspace scale safely
+into Brazilian high-density urban corridors?} Importantly, DAIDALUS operates strictly on
+immediate kinematic state vectors (current position and velocity) rather than tracking
+pre-planned mission routes. This fundamental characteristic decouples tactical collision
+avoidance from strategic 4-D paths, making it the ideal testbed to investigate how onboard
+autonomy impacts overarching fleet operations.
+
+\paragraph{Cooperative vs.\ Non-Cooperative Operational Modes}
+In a cooperative airspace, DAIDALUS operates with high-fidelity telemetry data (\gls{ads-b}),
+assessing the \emph{Well-Clear} timeline using exact time-to-convergence inequalities based
+on minimum vertical/horizontal separation thresholds~\cite{wellclear_nasa}. The strategic
+differentiator of the Point D architecture is its planned behaviour when fed by onboard sensors
+(Radar and Vision) detecting non-cooperative aircraft, which provide data characterised by
+noise and systematic measurement errors.
+
+\paragraph{Planned Extension: Sensor Uncertainty Mitigation (SUM) and VISA Smoothing}
+\label{sec:sum_visa_future}
+The DAIDALUS framework natively supports \gls{sum}
+(\emph{Sensor Uncertainty Mitigation})~\cite{applying_sum_nasa}, which uses error
+distributions ($z$-scores) to dynamically expand the Well Clear volume into a safety
+ellipsoid encompassing the intruder's ``worst probable position,'' and \gls{visa}
+(\emph{Virtual Intruder State Aggregation}), which smooths temporal jitter by averaging
+consecutive sensor updates~\cite{sum_evaluation_nasa}.
+
+\textbf{Current experimental scope:} All scalability runs presented in
+Section~\ref{sec:scen2_sweep} operate under \emph{cooperative perfect-state} assumptions
+(exact position and velocity vectors), so neither SUM expansion nor VISA smoothing was
+exercised in the results reported here. Activating SUM with realistic onboard-sensor noise
+profiles (mmWave Radar, Computer Vision) is a programmed next step that will widen the
+effective Well Clear volume and is expected to increase both alert rates and route
+inefficiency --- quantifying that penalty is a priority for the next project phase.
+
+\paragraph{Planned Extension: Human-in-the-Loop (HITL) Alerting Validation}
+The DAIDALUS alert taxonomy maps to absolute reaction timelines relevant for \gls{rpic}
+authority~\cite{atc_acceptability_nasa}: \textbf{Preventive} ($\sim$60\,s to \gls{cpa}),
+\textbf{Corrective} ($\sim$30\,s), and \textbf{Warning} ($\sim$15\,s). While these thresholds
+are configured in the current \gls{htlv} engine, the scalability sweep does not yet inject
+\gls{rpic} reaction latency or decision-loop delays into the simulation. Validating that the
+5--15\,s pilot network latency budget~\cite{atc_acceptability_nasa} is safely absorbed under
+dense traffic conditions remains an explicit future-work objective.
+
+\paragraph{DAIDALUS Steering Strategies Under Evaluation}
+\label{sec:action_modes}
+Two complementary DAIDALUS-mediated steering strategies were evaluated in the scalability sweep:
+\begin{enumerate}
+    \item \textbf{Continuous Safe Band:} At every physics step, the engine selects the nearest
+    heading within the current DAIDALUS \emph{safe band} (i.e.\ the set of headings that
+    do not violate the Well Clear volume for any tracked intruder) and blends that heading
+    continuously into the active trajectory. This approach produces the smoothest flight path
+    and maximises compliance with the full DAIDALUS resolution logic.
+
+    \item \textbf{Preferred Horizontal Resolution:} Rather than blending across the full safe
+    band, the engine hard-couples to the single optimal avoidance heading recommended by the
+    DAIDALUS \emph{preferred resolution} output at each update. This yields a more decisive
+    turn toward the algorithmically chosen escape direction.
+\end{enumerate}
+
+\noindent Both modes are compared against a \textbf{No-DAIDALUS baseline} that uses a simple
+proximity-triggered angular maneuver (the same heuristic used in the \gls{msla}), providing
+the reference ``blind flight'' degradation curve.
+
+% -----------------------------------------------------------
+\subsubsection{Scenario 2: DAIDALUS Scalability Evaluation}
+\label{sec:scen2_sweep}
+% -----------------------------------------------------------
+
+To push beyond single-encounter validation, a large-scale tactical resolution sweep was
+executed within the \gls{htlv} unified runner. This benchmark compares the no-DAIDALUS
+baseline against the two DAIDALUS steering strategies under fixed geographic and temporal
+parameters over a 1-hour simulation window. Fleet densities ranged from $N = 50$ to
+$N = 1{,}000$ simultaneous drones in the geofenced corridor.
+
+\paragraph{Full Cross-Density Results}
+
+Table~\ref{tab:scen2_full} presents the complete sweep across all density levels. The metrics
+are: \textbf{CR} --- mission completion ratio (completed\,/\,scheduled);
+\textbf{MAC} --- total MACproxy events (20\,m horizontal / 10\,m vertical violations);
+\textbf{Ineff.} --- route inefficiency percentage (excess distance relative to ideal chord);
+\textbf{Wall} --- simulator wall-clock time.
+
+\begin{table}[htbp]
+\caption{DAIDALUS Scalability Sweep --- Scenario 2, 1-hour window, 10\,Hz physics,
+$N = 50$ to $N = 1{,}000$.}
+\label{tab:scen2_full}
+\centering
+\renewcommand{\arraystretch}{1.2}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{llrrrr}
+\toprule
+\textbf{Mode} & $N$ & \textbf{CR} & \textbf{MAC} & \textbf{Ineff.\ (\%)} & \textbf{Wall (s)} \\
+\midrule
+\textbf{Preferred Horizontal Resolution}
+ & 50   & 0.853 & 0      & 6.22   & 4.6 \\
+ & 100  & 0.856 & 0      & 8.33   & 14.5 \\
+ & 200  & 0.851 & 2      & 11.85  & 49.9 \\
+ & 500  & 0.774 & 36     & 49.73  & 623.3 \\
+ & 1000 & 0.306 & 1\,202  & 90.85  & 11\,447.9 \\
+\addlinespace
+\textbf{Continuous Safe Band}
+ & 50   & 0.853 & 0      & 3.68   & 3.0 \\
+ & 100  & 0.860 & 5      & 6.61   & 12.7 \\
+ & 200  & 0.857 & 33     & 14.98  & 65.7 \\
+ & 500  & 0.724 & 1\,619  & 66.46  & 1\,574.6 \\
+ & 1000 & 0.334 & 19\,050 & 138.48 & 14\,721.0 \\
+\addlinespace
+\textbf{Baseline (No DAIDALUS)}
+ & 50   & 0.849 & 0      & 4.41   & 0.5 \\
+ & 100  & 0.856 & 0      & 8.16   & 0.9 \\
+ & 200  & 0.843 & 0      & 19.74  & 2.3 \\
+ & 500  & 0.774 & 42     & 70.17  & 13.2 \\
+ & 1000 & 0.460 & 3\,601  & 145.56 & 155.5 \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+
+% -----------------------------------------------------------
+\paragraph{Head-to-Head: DAIDALUS vs.\ No-DAIDALUS Baseline}
+\label{sec:daidalus_vs_baseline}
+% -----------------------------------------------------------
+
+Table~\ref{tab:daidalus_vs_baseline} distills the direct comparison between the best DAIDALUS
+mode at each density level (Preferred Horizontal Resolution) and the proximity-only baseline
+to highlight where standard-aligned RWC guidance adds value --- and where it becomes
+counterproductive.
+
+\begin{table}[htbp]
+\caption{DAIDALUS (Preferred Horizontal Resolution) vs.\ No-DAIDALUS Baseline --- direct
+  comparison at each density level.  $\Delta$Ineff.\ shows the route inefficiency
+  \emph{reduction} provided by DAIDALUS (positive = DAIDALUS is more efficient).}
+\label{tab:daidalus_vs_baseline}
+\centering
+\renewcommand{\arraystretch}{1.2}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{r|rr|rr|rr}
+\toprule
+ & \multicolumn{2}{c|}{\textbf{MAC Events}}
+ & \multicolumn{2}{c|}{\textbf{Route Ineff.\ (\%)}}
+ & \multicolumn{2}{c}{\textbf{Completion Ratio}} \\
+$N$ & \textbf{Baseline} & \textbf{DAIDALUS}
+    & \textbf{Baseline} & \textbf{DAIDALUS}
+    & \textbf{Baseline} & \textbf{DAIDALUS} \\
+\midrule
+50   & 0     & 0     & 4.41  & 6.22  & 0.849 & 0.853 \\
+100  & 0     & 0     & 8.16  & 8.33  & 0.856 & 0.856 \\
+200  & 0     & 2     & 19.74 & 11.85 & 0.843 & 0.851 \\
+500  & 42    & 36    & 70.17 & 49.73 & 0.774 & 0.774 \\
+1000 & 3\,601 & 1\,202 & 145.56 & 90.85 & 0.460 & 0.306 \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+Three distinct operational regimes emerge from this comparison:
+
+\textbf{(i) Low density ($N \leq 100$):\ equivalent safety, comparable efficiency.}
+Both modes record zero MACproxy events, similar completion rates ($\approx$85\%), and
+nearly identical route inefficiency. At these densities the encounter rate is low enough
+that the simple proximity heuristic suffices; DAIDALUS adds algorithmic rigour and
+standard-aligned alerting but does not yet differentiate operationally in the metrics
+measured.
+
+\textbf{(ii) Moderate density ($N = 200$--$500$):\ DAIDALUS improves route quality.}
+This is the regime where DAIDALUS delivers its clearest advantage. At $N = 200$, the
+baseline's proximity heuristic generates \textbf{19.7\% route inefficiency} while DAIDALUS
+achieves \textbf{11.9\%} --- a $\approx$40\% reduction in excess path distance --- with
+comparable safety (2 MACs vs.\ 0). At $N = 500$, DAIDALUS reduces MAC events from 42 to 36
+\emph{and} simultaneously cuts route inefficiency from 70\% to 50\%. The advantage arises
+because DAIDALUS computes the \emph{minimum-deviation safe heading} via the Well Clear
+inequality, whereas the proximity heuristic applies a fixed angular offset that often
+over-corrects. For battery-constrained sUAS, this 20--30 percentage-point route saving
+translates directly into extended operational range and mission feasibility.
+
+\textbf{(iii) High density ($N = 1{,}000$):\ reactive saturation crossover.}
+At extreme density, the comparison inverts. DAIDALUS reduces MAC events (1,202 vs.\ 3,601
+for the baseline) but at a severe cost: completion ratio drops to 30.6\% versus the
+baseline's 46.0\%, and the Continuous Safe Band variant generates \textbf{19,050} MAC
+events --- \emph{5.3$\times$ worse than no guidance at all}. This paradoxical inversion
+signals the onset of \emph{reactive oscillation deadlock}.
+
+% -----------------------------------------------------------
+\paragraph{Root Cause: Reactive Oscillation Deadlock at Scale}
+\label{sec:daidalus_saturation}
+% -----------------------------------------------------------
+
+The wall-clock data reveals the physical mechanism behind the high-density collapse.
+Continuous Safe Band requires 14,721\,s ($\approx$4~hours) to simulate a 3,600\,s scenario
+at $N = 1{,}000$, an amplification factor of $4.1\times$ the simulated time, compared to
+$0.04\times$ for the baseline. This growth is consistent with the $O(N^2)$ structure of
+the DAIDALUS pairwise evaluation graph: at $N = 1{,}000$, the engine evaluates
+\textbf{102,655 alert pairs} per step versus 74,055 for the baseline.
+
+The continuous re-querying triggers \emph{heading oscillations} across multiple interacting
+pairs: each drone adjusts heading in response to newly generated conflicts caused by the
+previous step's adjustments, creating a feedback loop that prevents mission completion and
+paradoxically \emph{increases} the total number of separation violations. Preferred
+Horizontal Resolution exhibits qualitatively similar behaviour (wall-clock: 11,448\,s),
+confirming that pairwise re-evaluation dominates regardless of how the resolution heading
+is selected.
+
+\textbf{Implication:} DAIDALUS, as a pairwise reactive algorithm designed for sparse
+cooperative encounters (DO-365B), was not architecturally intended for dense multi-agent
+environments where cascading pair interactions dominate. The scalability sweep empirically
+demonstrates the density threshold ($N \approx 300$--$500$ in a 5\,km corridor) at which
+reactive logic alone becomes insufficient and strategic pre-separation (\gls{xtm}) becomes
+operationally mandatory.
+
+
+% -----------------------------------------------------------
+\paragraph{Performance Trends}
+% -----------------------------------------------------------
+
+The following charts illustrate the degradation curves as the number of drones ($N$) increases
+across the geofenced corridor.
+
+\begin{figure}[htbp]
+    \centering
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Docs_ref/Rust_sim/report_sections/figures/scen2_daidalus_sweep/fig_scen2_completion_ratio_vs_n.png}
+        \caption{Mission completion ratio vs.\ fleet size. Both DAIDALUS modes sustain above
+        80\% completion through $N = 200$, then degrade sharply. At $N = 1{,}000$,
+        completion drops below 35\%, indicating the reactive saturation limit.}
+        \label{fig:scen2_completion}
+    \end{minipage}\hfill
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Docs_ref/Rust_sim/report_sections/figures/scen2_daidalus_sweep/fig_scen2_macproxy_vs_n.png}
+        \caption{MACproxy count (safety violations) vs.\ fleet size. Continuous Safe Band
+        generates 19,050 violations at $N = 1{,}000$ --- exceeding the 3,601 of the
+        no-DAIDALUS baseline --- confirming the reactive oscillation deadlock.}
+        \label{fig:scen2_macproxy}
+    \end{minipage}
+
+    \vspace{0.5cm}
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Docs_ref/Rust_sim/report_sections/figures/scen2_daidalus_sweep/fig_scen2_route_inefficiency_vs_n.png}
+        \caption{Route inefficiency (\%) vs.\ fleet size. Continuous Safe Band reaches 138\%
+        excess distance at $N = 1{,}000$, rendering battery-constrained sUAS missions
+        infeasible. Even at $N = 500$, the 50--66\% penalty imposes severe operational
+        constraints.}
+        \label{fig:scen2_ineff}
+    \end{minipage}\hfill
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Docs_ref/Rust_sim/report_sections/figures/scen2_daidalus_sweep/fig_scen2_wall_seconds_vs_n.png}
+        \caption{Simulator wall-clock time vs.\ fleet size. The $O(N^2)$ computational growth
+        of the DAIDALUS pairwise evaluation is clearly visible, reaching over 14,000\,s for
+        Safe Band at $N = 1{,}000$ --- a 94$\times$ slowdown relative to the baseline.}
+        \label{fig:scen2_wall}
+    \end{minipage}
+\end{figure}
+
+
+% -----------------------------------------------------------
+\subsubsection{Key Finding: The xTM Imperative}
+\label{sec:xtm_imperative}
+% -----------------------------------------------------------
+
+The sweep results provide the empirical foundation for a central conclusion: \textbf{DAIDALUS
+alone is necessary but not sufficient for high-density UTM operations.}
+
+At low-to-moderate densities ($N \leq 200$), the DAIDALUS-based \gls{rwc} layer effectively
+resolves conflicts with near-zero safety violations and acceptable route penalties. This
+validates DAIDALUS as a viable tactical backbone for initial BVLOS deployments in the density
+regimes targeted by SIMUA.
+
+Beyond $N \approx 300$--$500$, however, the pairwise reactive nature of DAIDALUS encounters
+a fundamental scalability ceiling: cascading pair interactions generate oscillatory
+heading adjustments that degrade both safety and efficiency below the no-guidance baseline.
+This is not a flaw in the DAIDALUS algorithm --- it performs precisely as designed for
+sparse encounter geometries --- but rather a confirmation that \textbf{high-density
+corridors require strategic pre-separation (\gls{xtm})} to reduce the effective encounter
+rate before tactical DAIDALUS logic engages.
+
+This finding directly reinforces the layered architecture proposed in the \gls{conops}:
+\begin{enumerate}
+    \item \textbf{Strategic layer (\gls{xtm}):} Pre-tactical flow management, route
+    deconfliction, and temporal separation to keep the effective $N$ within the DAIDALUS
+    operational envelope ($N \leq 200$--$300$ for a 5\,km corridor).
+    \item \textbf{Tactical layer (DAIDALUS):} Real-time RWC guidance for residual conflicts
+    that escape strategic deconfliction, operating in the density regime where it is proven
+    effective.
+    \item \textbf{Collision avoidance layer:} Last-resort emergency maneuvers for encounters
+    that breach the RWC boundary.
+\end{enumerate}
+
+\noindent The MSLA results (Section~\ref{sec:msla}), which independently demonstrate
+the effectiveness of xTM in reducing encounter rates at fleet scale, are therefore
+\emph{directly complementary} to the HTLV findings: together they validate the full
+strategic-to-tactical pipeline.
+
+% -----------------------------------------------------------
+\subsubsection{Future Integration Directions}
+% -----------------------------------------------------------
+
+The \gls{htlv} is designed as a modular research platform. The results above suggest two
+concrete integration directions for subsequent project phases.
+
+First, the DAIDALUS resolution logic should be integrated as the tactical avoidance engine
+within the \gls{msla} fleet simulator, replacing the current macroscopic heuristic. This
+closed-loop integration will allow quantification of how xTM pre-separation + DAIDALUS
+tactical guidance perform together across the full density range, and will empirically
+determine the minimum xTM separation requirements that keep DAIDALUS within its effective
+operating envelope.
+
+Second, once the multi-sensor benchmark (Section~\ref{sec:multisensor-benchmark}) produces
+calibrated detection probability profiles per sensor and lighting condition, those empirical
+envelopes can be injected into the HTLV pipeline as the source of intruder state estimates
+--- replacing the current idealised perfect-state assumption and enabling end-to-end
+evaluation of the full sense-to-avoid chain under realistic uncertainty budgets.
+
+% -----------------------------------------------------------
+\subsubsection{Summary for DECEA Evaluation}
+\label{subsec:decea_summary}
+% -----------------------------------------------------------
+
+The sequential value chain --- from mathematical pre-tactical capacity bounding in SCOPAS,
+through macroscopic 4-D strategic reservations (\gls{msla}), down to high-fidelity,
+algorithmically aligned tactical deviation (\gls{htlv}) --- models a holistic conceptual
+approach for managing \gls{uas} traffic in Brazilian airspace.
+
+The DAIDALUS scalability sweep provides three operationally relevant conclusions for DECEA
+assessment:
+
+\begin{enumerate}
+    \item \textbf{DAIDALUS is effective as a tactical RWC layer at operationally relevant
+    densities.} At $N \leq 200$ (the regime corresponding to initial BVLOS deployments),
+    both steering modes achieve near-zero safety violations with completion rates above 85\%
+    and route inefficiency below 15\%.
+
+    \item \textbf{A hard scalability ceiling exists for reactive-only guidance.}
+    Beyond $N \approx 300$--$500$, DAIDALUS-only control collapses due to cascading pairwise
+    oscillations. At $N = 1{,}000$, the system generates more separation violations than the
+    no-guidance baseline, confirming that reactive logic alone cannot sustain high-density
+    operations.
+
+    \item \textbf{Strategic pre-separation (xTM) is mandatory above the tactical ceiling.}
+    The results empirically validate the layered xTM + DAIDALUS architecture proposed in the
+    \gls{conops}: xTM keeps the effective encounter rate within the DAIDALUS operational
+    envelope, while DAIDALUS handles residual conflicts with proven effectiveness.
+\end{enumerate}
+
+\paragraph{Transition: from \gls{rwc} kinematics to the sense layer.}
+The \gls{htlv} pipeline assumes that intruder state estimates are available to DAIDALUS at
+the required rate and with modelled uncertainty. It does not quantify \emph{which} onboard
+sensor provides the earliest cue, or how $P_d$ falls with range and lighting --- those are
+properties of the perception stack. Section~\ref{sec:multisensor_benchmark} therefore presents
+a synchronized Cosys-AirSim benchmark that isolates the ``sense'' path under identical
+encounters, feeding the fusion and \gls{sum}/\gls{visa} rationale developed here.
