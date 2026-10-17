@@ -158,6 +158,139 @@
             font-variant-numeric: tabular-nums;
         }
 
+        /* Saturated-demo playback: labels only, no side chrome. */
+        body.demo-saturated #panelTopBar,
+        body.demo-saturated #optionsPanel,
+        body.demo-saturated #controls,
+        body.demo-saturated #ui {
+            display: none !important;
+        }
+
+        #demoHud {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            pointer-events: none;
+            font-family: "Segoe UI", Helvetica, Arial, sans-serif;
+        }
+
+        body.demo-saturated #demoHud {
+            display: block;
+        }
+
+        #demoHud .demo-top {
+            position: absolute;
+            top: 28px;
+            left: 36px;
+            right: 36px;
+            max-width: 920px;
+        }
+
+        #demoHud .demo-kicker {
+            display: inline-block;
+            letter-spacing: 0.14em;
+            font-size: 15px;
+            font-weight: 700;
+            color: #9be7ff;
+            background: rgba(0, 0, 0, 0.55);
+            border: 1px solid rgba(155, 231, 255, 0.45);
+            border-radius: 999px;
+            padding: 4px 12px;
+            margin-bottom: 10px;
+        }
+
+        #demoHud .demo-title {
+            margin: 0;
+            font-size: 40px;
+            line-height: 1.12;
+            font-weight: 760;
+            color: #fff;
+            text-shadow: 0 2px 16px rgba(0, 0, 0, 0.85);
+        }
+
+        #demoHud .demo-sub {
+            margin: 8px 0 0 0;
+            font-size: 22px;
+            line-height: 1.3;
+            color: #e7e7e7;
+            text-shadow: 0 2px 12px rgba(0, 0, 0, 0.9);
+        }
+
+        #demoHud .demo-legend {
+            position: absolute;
+            left: 36px;
+            bottom: 28px;
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+
+        #demoHud .chip {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(0, 0, 0, 0.62);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 16px;
+            color: #f2f2f2;
+        }
+
+        #demoHud .swatch {
+            width: 22px;
+            height: 8px;
+            border-radius: 2px;
+        }
+
+        #demoHud .swatch.dashed {
+            background: repeating-linear-gradient(90deg, #9aa4ff 0 6px, transparent 6px 10px);
+        }
+
+        #demoHud .swatch.solid {
+            background: #ffd35a;
+        }
+
+        #demoHud .swatch.wedge {
+            width: 16px;
+            height: 16px;
+            border-radius: 0 12px 12px 0;
+            background: rgba(68, 255, 170, 0.85);
+        }
+
+        #demoHud .swatch.alert {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 2px solid #ff4d4d;
+            background: transparent;
+        }
+
+        #demoInsetFrame {
+            display: none;
+            position: fixed;
+            z-index: 45;
+            pointer-events: none;
+            border: 2px solid rgba(68, 255, 170, 0.95);
+            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+            border-radius: 8px;
+        }
+
+        #demoInsetFrame .inset-tag {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: #12382c;
+            color: #b8ffdf;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            padding: 2px 8px;
+            border-radius: 4px;
+            border: 1px solid rgba(68, 255, 170, 0.8);
+        }
+
         /* Telemetry load progress */
         #loadProgressWrap {
             display: none;
@@ -392,6 +525,21 @@
         </div>
     </div>
 
+    <div id="demoHud" aria-hidden="true">
+        <div class="demo-top">
+            <div class="demo-kicker" id="demoKicker">SATURATED TRAFFIC</div>
+            <h1 class="demo-title" id="demoTitle">Too many aircraft, one intersection</h1>
+            <p class="demo-sub" id="demoSub">Crossing streams fill the same city airspace.</p>
+        </div>
+        <div class="demo-legend">
+            <div class="chip"><span class="swatch dashed"></span>Dashed = planned route</div>
+            <div class="chip"><span class="swatch solid"></span>Solid = flown path</div>
+            <div class="chip"><span class="swatch wedge"></span>Green wedge = DAIDALUS safe heading</div>
+            <div class="chip"><span class="swatch alert"></span>Ring = conflict alert</div>
+        </div>
+    </div>
+    <div id="demoInsetFrame" aria-hidden="true"><span class="inset-tag">DAIDALUS CLOSE-UP</span></div>
+
     <script>
         // --- 1. Three.js Setup ---
         const container = document.getElementById('canvas-container');
@@ -400,6 +548,7 @@
 
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 50000);
         camera.position.set(2000, 2000, 2000);
+        const insetCamera = new THREE.PerspectiveCamera(42, 1.6, 1, 50000);
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -433,6 +582,7 @@
         let totalTime = 0;
         let playbackSpeed = 1;
         let clock = new THREE.Clock();
+        let saturatedDemo = null;
         let entityScale = 1.0;
 
         let backgroundMapMesh = null;
@@ -987,7 +1137,8 @@
                     droneTimelines.get(entry.drone_id).push({
                         t: t,
                         pos: new Float32Array(entry.position),
-                        alerts: entry.collision_alerts || []
+                        alerts: entry.collision_alerts || [],
+                        reactive: !!entry.has_reactive_target
                     });
 
                     frameCount++;
@@ -1358,9 +1509,9 @@
                 const geom = new THREE.BufferGeometry().setFromPoints([pts[0], pts[1]]);
                 const mat = new THREE.LineDashedMaterial({
                     color: colorForDroneId(r.id),
+                    transparent: true,
                     dashSize: 45,
                     gapSize: 28,
-                    transparent: true,
                     opacity: 0.78,
                     // Prevent depth-buffer "fight" with the ground grid when the camera angle changes.
                     depthWrite: false
@@ -1522,6 +1673,7 @@
             updateUI();
             renderFrame(0);
             refreshBackgroundMapTextureIfEnabled(true);
+            maybeStartSaturatedDemo();
         }
 
         function clearStaticObjects() {
@@ -1582,7 +1734,8 @@
 
             return {
                 pos: [x, y, z],
-                alerts: prev.alerts
+                alerts: prev.alerts,
+                reactive: !!prev.reactive
             };
         }
 
@@ -1891,8 +2044,337 @@
             renderFrame(currentTime);
         });
 
+        function crossTrackM(pos, waypoints) {
+            if (!waypoints || waypoints.length < 2) return 0;
+            const a = waypoints[0];
+            const b = waypoints[waypoints.length - 1];
+            const abx = b[0] - a[0];
+            const abz = b[2] - a[2];
+            const ab2 = abx * abx + abz * abz;
+            if (ab2 < 1) return 0;
+            let u = ((pos[0] - a[0]) * abx + (pos[2] - a[2]) * abz) / ab2;
+            u = Math.max(0, Math.min(1, u));
+            const cx = a[0] + abx * u;
+            const cz = a[2] + abz * u;
+            return Math.hypot(pos[0] - cx, pos[2] - cz);
+        }
+
+        function routeWaypoints(id) {
+            if (!metadata || !metadata.drone_routes) return null;
+            const r = metadata.drone_routes.find(x => x.id === id);
+            return r ? r.waypoints : null;
+        }
+
+        function alertHasBand(alerts) {
+            return (alerts || []).some(a => (a.min_safe_heading || 0) !== 0 || (a.max_safe_heading || 0) !== 0);
+        }
+
+        /** Time and aircraft where DAIDALUS bands and a visible path bend overlap. */
+        function pickSaturatedFocus() {
+            const ids = Array.from(droneTimelines.keys());
+            let best = null;
+            const tEnd = Math.max(1, totalTime);
+            for (let t = 1; t <= tEnd; t += 1) {
+                let banded = 0;
+                let reactive = 0;
+                let xtSum = 0;
+                let xtN = 0;
+                let cx = 0, cy = 0, cz = 0, n = 0;
+                let focus = null;
+                for (const id of ids) {
+                    const s = getInterpolatedState(droneTimelines.get(id), t);
+                    if (!s) continue;
+                    n++;
+                    cx += s.pos[0];
+                    cy += s.pos[1];
+                    cz += s.pos[2];
+                    const wps = routeWaypoints(id);
+                    const xt = wps ? crossTrackM(s.pos, wps) : 0;
+                    const hasBand = alertHasBand(s.alerts);
+                    if (s.reactive) reactive++;
+                    if (hasBand) {
+                        banded++;
+                        xtSum += xt;
+                        xtN++;
+                        const centrality = 500 - Math.hypot(s.pos[0], s.pos[2]);
+                        const score = xt + (s.reactive ? 15 : 0) + centrality * 0.2;
+                        if (!focus || score > focus.score) {
+                            focus = { id, score, xt, pos: [s.pos[0], s.pos[1], s.pos[2]] };
+                        }
+                    }
+                }
+                if (n < 8 || banded < 6 || !focus) continue;
+                const meanXt = xtN ? xtSum / xtN : 0;
+                const record = {
+                    t,
+                    score: banded + focus.xt,
+                    banded,
+                    reactive,
+                    meanXt,
+                    focusId: focus.id,
+                    centroid: [cx / n, cy / n, cz / n]
+                };
+                if (!best) best = record;
+                // First moment the resolution bend is visible while traffic is still packed on the plan.
+                if (focus.xt >= 28 && focus.xt <= 55) return record;
+            }
+            return best;
+        }
+
+        function placeCamera(cam, look, dist, elevDeg, azDeg) {
+            const el = elevDeg * Math.PI / 180;
+            const az = azDeg * Math.PI / 180;
+            cam.position.set(
+                look[0] + dist * Math.cos(el) * Math.sin(az),
+                look[1] + dist * Math.sin(el),
+                look[2] + dist * Math.cos(el) * Math.cos(az)
+            );
+            cam.up.set(0, 1, 0);
+            cam.lookAt(look[0], look[1], look[2]);
+        }
+
+        function focusLookAt(simT) {
+            const id = saturatedDemo.focusId;
+            const s = getInterpolatedState(droneTimelines.get(id), simT);
+            if (!s) return saturatedDemo.centroid.slice();
+            return [s.pos[0], s.pos[1], s.pos[2]];
+        }
+
+        function simTimeForWall(wall, tZoom) {
+            const pre = Math.max(1, tZoom - 3.2);
+            if (wall < 3.2) {
+                return pre + (wall / 3.2) * (tZoom - pre);
+            }
+            const from = tZoom;
+            const to = Math.min(totalTime, tZoom + 8);
+            const u = Math.min(1, (wall - 3.2) / 6.8);
+            return from + (to - from) * u;
+        }
+
+        function setDemoCopy(wall) {
+            const kicker = document.getElementById('demoKicker');
+            const title = document.getElementById('demoTitle');
+            const sub = document.getElementById('demoSub');
+            let beat = 'wide';
+            if (wall < 3.15) {
+                kicker.textContent = 'SATURATED TRAFFIC';
+                title.textContent = 'Too many aircraft, one intersection';
+                sub.textContent = 'Crossing streams fill the same city airspace.';
+                beat = 'wide';
+            } else if (wall < 6.4) {
+                kicker.textContent = 'DAIDALUS';
+                title.textContent = 'Conflict detected — safe heading band';
+                sub.textContent = 'The green wedge is the heading sector this aircraft may fly.';
+                beat = 'closeup';
+            } else {
+                kicker.textContent = 'RESOLUTION';
+                title.textContent = 'The flown path leaves the plan';
+                sub.textContent = 'Solid trail bends off the dashed route to stay well clear.';
+                beat = 'resolution';
+            }
+            if (window.__utmDemo) window.__utmDemo.beat = beat;
+        }
+
+        function emphasizeFocusRoutes(close) {
+            const id = saturatedDemo.focusId;
+            plannedRouteLines.forEach(line => {
+                const on = line.userData.droneId === id;
+                line.material.opacity = close ? (on ? 1 : 0.18) : 0.72;
+                if (line.material.color) {
+                    if (close && on) line.material.color.setHex(0xc5ccff);
+                }
+            });
+            executedRouteLines.forEach((line, droneId) => {
+                const on = droneId === id;
+                line.material.opacity = close ? (on ? 1 : 0.22) : 0.88;
+                if (close && on) line.material.color.setHex(0xffcc33);
+            });
+        }
+
+        function revealOnlyFocusBand() {
+            const id = saturatedDemo.focusId;
+            const close = saturatedDemo.wall >= 3.05;
+            droneObjects.forEach((group, droneId) => {
+                const wedge = group.getObjectByName('daa_safe_wedge');
+                const arrow = group.getObjectByName('resolution_arrow');
+                const bubble = group.getObjectByName('collision_bubble');
+                const mine = droneId === id;
+                if (wedge) {
+                    wedge.visible = mine && wedge.visible;
+                    if (wedge.material) wedge.material.opacity = 0.55;
+                }
+                if (arrow) arrow.visible = mine && arrow.visible;
+                if (bubble && close && !mine) bubble.visible = false;
+                group.scale.setScalar(mine && close ? entityScale * 1.45 : entityScale);
+            });
+        }
+
+        function maybeStartSaturatedDemo() {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('demo') !== 'saturated') return;
+            const picked = pickSaturatedFocus();
+            if (!picked) {
+                window.__utmDemo = { active: false, ready: true, error: 'no_focus', done: true };
+                return;
+            }
+            document.body.classList.add('demo-saturated');
+            document.getElementById('showSuggestions').checked = true;
+            document.getElementById('showSafeBand').checked = true;
+            document.getElementById('showRoutes').checked = true;
+            document.getElementById('showPlanned').checked = true;
+            document.getElementById('showExecuted').checked = true;
+            document.getElementById('showGrid').checked = true;
+            document.getElementById('routeWinBehindMin').value = '0.5';
+            document.getElementById('routeWinAheadMin').value = '0.2';
+            document.getElementById('routeAssumedSpeedMps').value = '18';
+            const scaleEl = document.getElementById('entityScale');
+            if (scaleEl) {
+                scaleEl.value = '1.7';
+                updateEntityScaleFromUI();
+            }
+            applyGridVisibility();
+            controls.enabled = false;
+            isPlaying = false;
+            scene.background = new THREE.Color(0x1a141c);
+            if (!scene.getObjectByName('demo_ground')) {
+                const ground = new THREE.Mesh(
+                    new THREE.PlaneGeometry(12000, 12000),
+                    new THREE.MeshLambertMaterial({ color: 0x16161c })
+                );
+                ground.rotation.x = -Math.PI / 2;
+                ground.position.y = -2;
+                ground.name = 'demo_ground';
+                scene.add(ground);
+            }
+            const bounds = gridBounds;
+            const centroid = picked.centroid;
+            if (bounds) {
+                centroid[0] = bounds.centerX;
+                centroid[2] = bounds.centerZ;
+            }
+            const manual = params.get('clock') === 'manual';
+            saturatedDemo = {
+                active: true,
+                started: performance.now(),
+                duration: 10,
+                wall: 0,
+                manual,
+                tZoom: picked.t,
+                focusId: picked.focusId,
+                centroid,
+                banded: picked.banded,
+                done: false
+            };
+            window.__utmDemo = {
+                active: true,
+                ready: true,
+                done: false,
+                beat: 'wide',
+                duration: 10,
+                manual,
+                tZoom: picked.t,
+                focusId: picked.focusId,
+                banded: picked.banded
+            };
+            window.__utmDemoSeek = (wall) => new Promise((resolve) => {
+                applyDemoWall(wall);
+                requestAnimationFrame(() => requestAnimationFrame(resolve));
+            });
+            applyDemoWall(0);
+        }
+
+        function applyDemoWall(wall) {
+            const clamped = Math.max(0, Math.min(saturatedDemo.duration, wall));
+            saturatedDemo.wall = clamped;
+            currentTime = simTimeForWall(clamped, saturatedDemo.tZoom);
+            setDemoCopy(clamped);
+            renderFrame(currentTime);
+            emphasizeFocusRoutes(clamped >= 3.05);
+            revealOnlyFocusBand();
+            renderSaturatedDemoFrame(clamped);
+            const beat = clamped < 3.15 ? 'wide' : (clamped < 6.4 ? 'closeup' : 'resolution');
+            window.__utmDemo.wall = clamped;
+            window.__utmDemo.simTime = currentTime;
+            window.__utmDemo.beat = beat;
+            window.__utmDemo.done = clamped >= saturatedDemo.duration - 1e-6;
+            saturatedDemo.done = window.__utmDemo.done;
+        }
+
+        function stepSaturatedDemo() {
+            const wall = (performance.now() - saturatedDemo.started) / 1000;
+            applyDemoWall(wall);
+        }
+
+        function insetRectForWall(wall, w, h) {
+            const start = { x: w - 500 - 36, y: 40, w: 500, h: 310 };
+            const full = { x: 0, y: 0, w, h };
+            if (wall < 3.05) return Object.assign({ mode: 'inset' }, start);
+            if (wall >= 4.55) return Object.assign({ mode: 'full' }, full);
+            const u = (wall - 3.05) / (4.55 - 3.05);
+            const e = u * u * (3 - 2 * u);
+            return {
+                mode: 'grow',
+                x: start.x + (full.x - start.x) * e,
+                y: start.y + (full.y - start.y) * e,
+                w: start.w + (full.w - start.w) * e,
+                h: start.h + (full.h - start.h) * e
+            };
+        }
+
+        function renderSaturatedDemoFrame(wall) {
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            const wideLook = saturatedDemo.centroid;
+            const closeLook = focusLookAt(currentTime);
+            const wideDist = gridBounds ? Math.max(720, gridBounds.size * 0.58) : 860;
+            placeCamera(camera, wideLook, wideDist, 50, 28);
+            placeCamera(insetCamera, closeLook, 520, 58, 230);
+            insetCamera.aspect = 500 / 310;
+            insetCamera.updateProjectionMatrix();
+            camera.aspect = w / Math.max(1, h);
+            camera.updateProjectionMatrix();
+
+            const rect = insetRectForWall(wall, w, h);
+            const frame = document.getElementById('demoInsetFrame');
+            renderer.autoClear = false;
+            renderer.setScissorTest(false);
+            renderer.setViewport(0, 0, w, h);
+            renderer.clear(true, true, true);
+            if (rect.mode === 'full') {
+                placeCamera(camera, closeLook, 540, 56, 230);
+                camera.aspect = w / Math.max(1, h);
+                camera.updateProjectionMatrix();
+                renderer.render(scene, camera);
+                frame.style.display = 'none';
+                return;
+            }
+            renderer.render(scene, camera);
+            const iw = Math.max(2, Math.round(rect.w));
+            const ih = Math.max(2, Math.round(rect.h));
+            const ix = Math.round(rect.x);
+            const iy = Math.round(rect.y);
+            insetCamera.aspect = iw / ih;
+            insetCamera.updateProjectionMatrix();
+            renderer.setScissorTest(true);
+            renderer.setViewport(ix, iy, iw, ih);
+            renderer.setScissor(ix, iy, iw, ih);
+            renderer.clearDepth();
+            renderer.render(scene, insetCamera);
+            renderer.setScissorTest(false);
+            renderer.setViewport(0, 0, w, h);
+            frame.style.display = 'block';
+            frame.style.left = ix + 'px';
+            frame.style.top = (h - iy - ih) + 'px';
+            frame.style.width = iw + 'px';
+            frame.style.height = ih + 'px';
+        }
+
         function animate() {
             requestAnimationFrame(animate);
+            if (saturatedDemo && saturatedDemo.active) {
+                if (!saturatedDemo.manual) stepSaturatedDemo();
+                return;
+            }
             controls.update();
             if (isPlaying && totalTime > 0) {
                 currentTime += clock.getDelta() * playbackSpeed;

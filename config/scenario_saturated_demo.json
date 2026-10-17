@@ -1,0 +1,1071 @@
+{
+  "drones": [
+    {
+      "id": "U01",
+      "departure_time_s": 0.0,
+      "aircraft_kind": "Rotorcraft",
+      "performance": {
+        "mass_kg": 1.5,
+        "max_speed_mps": 18.0,
+        "min_speed_mps": 0.0,
+        "max_vertical_speed_mps": 4.0,
+        "max_turn_rate_deg_s": 48.0,
+        "battery_discharge_rate": 10.0
+      },
+      "flight_plan": {
+        "waypoints": [
+          [
+            -300.0,
+            155.0,
+            -100
+          ],
+          [
+            300.0,
+            155.0,
+            -100
+          ]
+        ],
+        "current_waypoint_index": 1
+      }
+    },
+    {
+      "id": "U02",
+      "departure_time_s": 0.0,
+      "aircraft_kind": "Rotorcraft",
+      "performance": {
+        "mass_kg": 1.5,
+        "max_speed_mps": 18.0,
+        "min_speed_mps": 0.0,
+        "max_vertical_speed_mps": 4.0,
+        "max_turn_rate_deg_s": 48.0,
+        "battery_discharge_rate": 10.0
+      },
+      "flight_plan": {
+        "waypoints": [
+          [
+            300.0,
+            155.0,
+            -100
+          ],
+          [
+            -300.0,
+            155.0,
+            -100
+          ]
+        ],
+        "current_waypoint_index": 1
+      }
+    },
+    {
+      "id": "U03",
+      "departure_time_s": 0.0,
+      "aircraft_kind": "Rotorcraft",
+      "performance": {
+        "mass_kg": 1.5,
+        "max_speed_mps": 18.0,
+        "min_speed_mps": 0.0,
+        "max_vertical_speed_mps": 4.0,
+        "max_turn_rate_deg_s": 48.0,
+        "battery_discharge_rate": 10.0
+      },
+      "flight_plan": {
+        "waypoints": [
+          [
+            -300.0,
+            155.0,
+            -50
+          ],
+          [
+            300.0,
+            155.0,
+            -50
+          ]
+        ],
+        "current_waypoint_index": 1
+      }
+    },
+    {
+      "id": "U04",
+      "departure_time_s": 0.0,
+      "aircraft_kind": "Rotorcraft",
+      "performance": {
+        "mass_kg": 1.5,
+        "max_speed_mps": 18.0,
+        "min_speed_mps": 0.0,
+        "max_vertical_speed_mps": 4.0,
+        "max_turn_rate_deg_s": 48.0,
+        "battery_discharge_rate": 10.0
+      },
+      "flight_plan": {
+        "waypoints": [
+          [
+            300.0,
+            155.0,
+            -50
+          ],
+          [
+            -300.0,
+            155.0,
+            -50
+          ]
+        ],
+        "current_waypoint_index": 1
+      }
+    },
+    {
+      "id": "U05",
+      "departure_time_s": 0.0,
+      "aircraft_kind": "Rotorcraft",
+      "performance": {
+        "mass_kg": 1.5,
+        "max_speed_mps": 18.0,
+        "min_speed_mps": 0.0,
+        "max_vertical_speed_mps": 4.0,
+        "max_turn_rate_deg_s": 48.0,
+        "battery_discharge_rate": 10.0
+      },
+      "flight_plan": {
+        "waypoints": [
+          [
+            -300.0,
+            155.0,
+            0
+          ],
+          [
+            300.0,
+            155.0,
+            0
+          ]
+        ],
+        "current_waypoint_index": 1
+      }
+    },
+    {
+      "id": "U06",
+      "departure_time_s": 0.0,
+      "aircraft_kind": "Rotorcraft",
+      "performance": {
+        "mass_kg": 1.5,
+        "max_speed_mps": 18.0,
+        "min_speed_mps": 0.0,
+        "max_vertical_speed_mps": 4.0,
+        "max_turn_rate_deg_s": 48.0,
+        "battery_discharge_rate": 10.0
+      },
+      "flight_plan": {
+        "waypoints": [
+          [
+            300.0,
+            155.0,
+            0
+          ],
+          [
+            -300.0,
+            155.0,
+            0
+          ]
+        ],
+        "current_waypoint_index": 1
+      }
+    },
+    {
+      "id": "U07",
+      "departure_time_s": 0.0,
+      "aircraft_kind": "Rotorcraft",
+      "performance": {
+        "mass_kg": 1.5,
+        "max_speed_mps": 18.0,
+        "min_speed_mps": 0.0,
+        "max_vertical_speed_mps": 4.0,
+        "max_turn_rate_deg_s": 48.0,
+        "battery_discharge_rate": 10.0
+      },
+      "flight_plan": {
+        "waypoints": [
+          [
+            -300.0,
+            155.0,
+            50
+          ],
+          [
+            300.0,
+            155.0,
+            50
+          ]
+        ],
+        "current_waypoint_index": 1
+      }
+    },
+    {
+      "id": "U08",
+      "departure_time_s": 0.0,
+      "aircraft_kind": "Rotorcraft",
+      "performance": {
+        "mass_kg": 1.5,
+        "max_speed_mps": 18.0,
+        "min_speed_mps": 0.0,
+        "max_vertical_speed_mps": 4.0,
+        "max_turn_rate_deg_s": 48.0,
+        "battery_discharge_rate": 10.0
+      },
+      "flight_plan": {
+        "waypoints": [
+          [
+            300.0,
+            155.0,
+            50
+          ],
+          [
+            -300.0,
+            155.0,
+            50
+          ]
+        ],
+        "current_waypoint_index": 1
+      }
+    },
+    {
+      "id": "U09",
+      "departure_time_s": 0.0,
+      "aircraft_kind": "Rotorcraft",
+      "performance": {
+        "mass_kg": 1.5,
+        "max_speed_mps": 18.0,
+        "min_speed_mps": 0.0,
+        "max_vertical_speed_mps": 4.0,
+        "max_turn_rate_deg_s": 48.0,
+        "battery_discharge_rate": 10.0
+      },
+      "flight_plan": {
+        "waypoints": [
+          [
+            -300.0,
+            155.0,
+            100
+          ],
+          [
+            300.0,
+            155.0,
+            100
+          ]
+        ],
+        "current_waypoint_index": 1
+      }
+    },
+    {
+      "id": "U10",
+      "departure_time_s": 0.0,
+      "aircraft_kind": "Rotorcraft",
+      "performance": {
+        "mass_kg": 1.5,
+        "max_speed_mps": 18.0,
+        "min_speed_mps": 0.0,
+        "max_vertical_speed_mps": 4.0,
+        "max_turn_rate_deg_s": 48.0,
+        "battery_discharge_rate": 10.0
+      },
+      "flight_plan": {
+        "waypoints": [
+          [
+            300.0,
+            155.0,
+            100
+          ],
+          [
+            -300.0,
+            155.0,
+            100
+          ]
+        ],
+        "current_waypoint_index": 1
+      }
+    },
+    {
+      "id": "U11",
+      "departure_time_s": 0.0,
+      "aircraft_kind": "Rotorcraft",
+      "performance": {
+        "mass_kg": 1.5,
+        "max_speed_mps": 18.0,
+        "min_speed_mps": 0.0,
+        "max_vertical_speed_mps": 4.0,
+        "max_turn_rate_deg_s": 48.0,
+        "battery_discharge_rate": 10.0
+      },
+      "flight_plan": {
+        "waypoints": [
+          [
+            -75,
+            155.0,
+            -300.0
+          ],
+          [
+            -75,
+            155.0,
+            300.0
+          ]
+        ],
+        "current_waypoint_index": 1
+      }
+    },
+    {
+      "id": "U12",
+      "departure_time_s": 0.0,
+      "aircraft_kind": "Rotorcraft",
+      "performance": {
+        "mass_kg": 1.5,
+        "max_speed_mps": 18.0,
+        "min_speed_mps": 0.0,
+        "max_vertical_speed_mps": 4.0,
+        "max_turn_rate_deg_s": 48.0,
+        "battery_discharge_rate": 10.0
+      },
+      "flight_plan": {
+        "waypoints": [
+          [
+            -75,
+            155.0,
+            300.0
+          ],
+          [
+            -75,
+            155.0,
+            -300.0
+          ]
+        ],
+        "current_waypoint_index": 1
+      }
+    },
+    {
+      "id": "U13",
+      "departure_time_s": 0.0,
+      "aircraft_kind": "Rotorcraft",
+      "performance": {
+        "mass_kg": 1.5,
+        "max_speed_mps": 18.0,
+        "min_speed_mps": 0.0,
+        "max_vertical_speed_mps": 4.0,
+        "max_turn_rate_deg_s": 48.0,
+        "battery_discharge_rate": 10.0
+      },
+      "flight_plan": {
+        "waypoints": [
+          [
+            -25,
+            155.0,
+            -300.0
+          ],
+          [
+            -25,
+            155.0,
+            300.0
+          ]
+        ],
+        "current_waypoint_index": 1
+      }
+    },
+    {
+      "id": "U14",
+      "departure_time_s": 0.0,
+      "aircraft_kind": "Rotorcraft",
+      "performance": {
+        "mass_kg": 1.5,
+        "max_speed_mps": 18.0,
+        "min_speed_mps": 0.0,
+        "max_vertical_speed_mps": 4.0,
+        "max_turn_rate_deg_s": 48.0,
+        "battery_discharge_rate": 10.0
+      },
+      "flight_plan": {
+        "waypoints": [
+          [
+            -25,
+            155.0,
+            300.0
+          ],
+          [
+            -25,
+            155.0,
+            -300.0
+          ]
+        ],
+        "current_waypoint_index": 1
+      }
+    },
+    {
+      "id": "U15",
+      "departure_time_s": 0.0,
+      "aircraft_kind": "Rotorcraft",
+      "performance": {
+        "mass_kg": 1.5,
+        "max_speed_mps": 18.0,
+        "min_speed_mps": 0.0,
+        "max_vertical_speed_mps": 4.0,
+        "max_turn_rate_deg_s": 48.0,
+        "battery_discharge_rate": 10.0
+      },
+      "flight_plan": {
+        "waypoints": [
+          [
+            25,
+            155.0,
+            -300.0
+          ],
+          [
+            25,
+            155.0,
+            300.0
+          ]
+        ],
+        "current_waypoint_index": 1
+      }
+    },
+    {
+      "id": "U16",
+      "departure_time_s": 0.0,
+      "aircraft_kind": "Rotorcraft",
+      "performance": {
+        "mass_kg": 1.5,
+        "max_speed_mps": 18.0,
+        "min_speed_mps": 0.0,
+        "max_vertical_speed_mps": 4.0,
+        "max_turn_rate_deg_s": 48.0,
+        "battery_discharge_rate": 10.0
+      },
+      "flight_plan": {
+        "waypoints": [
+          [
+            25,
+            155.0,
+            300.0
+          ],
+          [
+            25,
+            155.0,
+            -300.0
+          ]
+        ],
+        "current_waypoint_index": 1
+      }
+    },
+    {
+      "id": "U17",
+      "departure_time_s": 0.0,
+      "aircraft_kind": "Rotorcraft",
+      "performance": {
+        "mass_kg": 1.5,
+        "max_speed_mps": 18.0,
+        "min_speed_mps": 0.0,
+        "max_vertical_speed_mps": 4.0,
+        "max_turn_rate_deg_s": 48.0,
+        "battery_discharge_rate": 10.0
+      },
+      "flight_plan": {
+        "waypoints": [
+          [
+            75,
+            155.0,
+            -300.0
+          ],
+          [
+            75,
+            155.0,
+            300.0
+          ]
+        ],
+        "current_waypoint_index": 1
+      }
+    },
+    {
+      "id": "U18",
+      "departure_time_s": 0.0,
+      "aircraft_kind": "Rotorcraft",
+      "performance": {
+        "mass_kg": 1.5,
+        "max_speed_mps": 18.0,
+        "min_speed_mps": 0.0,
+        "max_vertical_speed_mps": 4.0,
+        "max_turn_rate_deg_s": 48.0,
+        "battery_discharge_rate": 10.0
+      },
+      "flight_plan": {
+        "waypoints": [
+          [
+            75,
+            155.0,
+            300.0
+          ],
+          [
+            75,
+            155.0,
+            -300.0
+          ]
+        ],
+        "current_waypoint_index": 1
+      }
+    },
+    {
+      "id": "U19",
+      "departure_time_s": 0.0,
+      "aircraft_kind": "Rotorcraft",
+      "performance": {
+        "mass_kg": 1.5,
+        "max_speed_mps": 18.0,
+        "min_speed_mps": 0.0,
+        "max_vertical_speed_mps": 4.0,
+        "max_turn_rate_deg_s": 48.0,
+        "battery_discharge_rate": 10.0
+      },
+      "flight_plan": {
+        "waypoints": [
+          [
+            125,
+            155.0,
+            -300.0
+          ],
+          [
+            125,
+            155.0,
+            300.0
+          ]
+        ],
+        "current_waypoint_index": 1
+      }
+    },
+    {
+      "id": "U20",
+      "departure_time_s": 0.0,
+      "aircraft_kind": "Rotorcraft",
+      "performance": {
+        "mass_kg": 1.5,
+        "max_speed_mps": 18.0,
+        "min_speed_mps": 0.0,
+        "max_vertical_speed_mps": 4.0,
+        "max_turn_rate_deg_s": 48.0,
+        "battery_discharge_rate": 10.0
+      },
+      "flight_plan": {
+        "waypoints": [
+          [
+            125,
+            155.0,
+            300.0
+          ],
+          [
+            125,
+            155.0,
+            -300.0
+          ]
+        ],
+        "current_waypoint_index": 1
+      }
+    },
+    {
+      "id": "U21",
+      "departure_time_s": 0.0,
+      "aircraft_kind": "Rotorcraft",
+      "performance": {
+        "mass_kg": 1.5,
+        "max_speed_mps": 18.0,
+        "min_speed_mps": 0.0,
+        "max_vertical_speed_mps": 4.0,
+        "max_turn_rate_deg_s": 48.0,
+        "battery_discharge_rate": 10.0
+      },
+      "flight_plan": {
+        "waypoints": [
+          [
+            -300.0,
+            195.0,
+            -370.0
+          ],
+          [
+            300.0,
+            195.0,
+            230.0
+          ]
+        ],
+        "current_waypoint_index": 1
+      }
+    },
+    {
+      "id": "U22",
+      "departure_time_s": 0.0,
+      "aircraft_kind": "Rotorcraft",
+      "performance": {
+        "mass_kg": 1.5,
+        "max_speed_mps": 18.0,
+        "min_speed_mps": 0.0,
+        "max_vertical_speed_mps": 4.0,
+        "max_turn_rate_deg_s": 48.0,
+        "battery_discharge_rate": 10.0
+      },
+      "flight_plan": {
+        "waypoints": [
+          [
+            300.0,
+            195.0,
+            230.0
+          ],
+          [
+            -300.0,
+            195.0,
+            -370.0
+          ]
+        ],
+        "current_waypoint_index": 1
+      }
+    },
+    {
+      "id": "U23",
+      "departure_time_s": 0.0,
+      "aircraft_kind": "Rotorcraft",
+      "performance": {
+        "mass_kg": 1.5,
+        "max_speed_mps": 18.0,
+        "min_speed_mps": 0.0,
+        "max_vertical_speed_mps": 4.0,
+        "max_turn_rate_deg_s": 48.0,
+        "battery_discharge_rate": 10.0
+      },
+      "flight_plan": {
+        "waypoints": [
+          [
+            300.0,
+            195.0,
+            -370.0
+          ],
+          [
+            -300.0,
+            195.0,
+            230.0
+          ]
+        ],
+        "current_waypoint_index": 1
+      }
+    },
+    {
+      "id": "U24",
+      "departure_time_s": 0.0,
+      "aircraft_kind": "Rotorcraft",
+      "performance": {
+        "mass_kg": 1.5,
+        "max_speed_mps": 18.0,
+        "min_speed_mps": 0.0,
+        "max_vertical_speed_mps": 4.0,
+        "max_turn_rate_deg_s": 48.0,
+        "battery_discharge_rate": 10.0
+      },
+      "flight_plan": {
+        "waypoints": [
+          [
+            -300.0,
+            195.0,
+            230.0
+          ],
+          [
+            300.0,
+            195.0,
+            -370.0
+          ]
+        ],
+        "current_waypoint_index": 1
+      }
+    },
+    {
+      "id": "U25",
+      "departure_time_s": 0.0,
+      "aircraft_kind": "Rotorcraft",
+      "performance": {
+        "mass_kg": 1.5,
+        "max_speed_mps": 18.0,
+        "min_speed_mps": 0.0,
+        "max_vertical_speed_mps": 4.0,
+        "max_turn_rate_deg_s": 48.0,
+        "battery_discharge_rate": 10.0
+      },
+      "flight_plan": {
+        "waypoints": [
+          [
+            -300.0,
+            195.0,
+            -300.0
+          ],
+          [
+            300.0,
+            195.0,
+            300.0
+          ]
+        ],
+        "current_waypoint_index": 1
+      }
+    },
+    {
+      "id": "U26",
+      "departure_time_s": 0.0,
+      "aircraft_kind": "Rotorcraft",
+      "performance": {
+        "mass_kg": 1.5,
+        "max_speed_mps": 18.0,
+        "min_speed_mps": 0.0,
+        "max_vertical_speed_mps": 4.0,
+        "max_turn_rate_deg_s": 48.0,
+        "battery_discharge_rate": 10.0
+      },
+      "flight_plan": {
+        "waypoints": [
+          [
+            300.0,
+            195.0,
+            300.0
+          ],
+          [
+            -300.0,
+            195.0,
+            -300.0
+          ]
+        ],
+        "current_waypoint_index": 1
+      }
+    },
+    {
+      "id": "U27",
+      "departure_time_s": 0.0,
+      "aircraft_kind": "Rotorcraft",
+      "performance": {
+        "mass_kg": 1.5,
+        "max_speed_mps": 18.0,
+        "min_speed_mps": 0.0,
+        "max_vertical_speed_mps": 4.0,
+        "max_turn_rate_deg_s": 48.0,
+        "battery_discharge_rate": 10.0
+      },
+      "flight_plan": {
+        "waypoints": [
+          [
+            300.0,
+            195.0,
+            -300.0
+          ],
+          [
+            -300.0,
+            195.0,
+            300.0
+          ]
+        ],
+        "current_waypoint_index": 1
+      }
+    },
+    {
+      "id": "U28",
+      "departure_time_s": 0.0,
+      "aircraft_kind": "Rotorcraft",
+      "performance": {
+        "mass_kg": 1.5,
+        "max_speed_mps": 18.0,
+        "min_speed_mps": 0.0,
+        "max_vertical_speed_mps": 4.0,
+        "max_turn_rate_deg_s": 48.0,
+        "battery_discharge_rate": 10.0
+      },
+      "flight_plan": {
+        "waypoints": [
+          [
+            -300.0,
+            195.0,
+            300.0
+          ],
+          [
+            300.0,
+            195.0,
+            -300.0
+          ]
+        ],
+        "current_waypoint_index": 1
+      }
+    },
+    {
+      "id": "U29",
+      "departure_time_s": 0.0,
+      "aircraft_kind": "Rotorcraft",
+      "performance": {
+        "mass_kg": 1.5,
+        "max_speed_mps": 18.0,
+        "min_speed_mps": 0.0,
+        "max_vertical_speed_mps": 4.0,
+        "max_turn_rate_deg_s": 48.0,
+        "battery_discharge_rate": 10.0
+      },
+      "flight_plan": {
+        "waypoints": [
+          [
+            -300.0,
+            195.0,
+            -230.0
+          ],
+          [
+            300.0,
+            195.0,
+            370.0
+          ]
+        ],
+        "current_waypoint_index": 1
+      }
+    },
+    {
+      "id": "U30",
+      "departure_time_s": 0.0,
+      "aircraft_kind": "Rotorcraft",
+      "performance": {
+        "mass_kg": 1.5,
+        "max_speed_mps": 18.0,
+        "min_speed_mps": 0.0,
+        "max_vertical_speed_mps": 4.0,
+        "max_turn_rate_deg_s": 48.0,
+        "battery_discharge_rate": 10.0
+      },
+      "flight_plan": {
+        "waypoints": [
+          [
+            300.0,
+            195.0,
+            370.0
+          ],
+          [
+            -300.0,
+            195.0,
+            -230.0
+          ]
+        ],
+        "current_waypoint_index": 1
+      }
+    },
+    {
+      "id": "U31",
+      "departure_time_s": 0.0,
+      "aircraft_kind": "Rotorcraft",
+      "performance": {
+        "mass_kg": 1.5,
+        "max_speed_mps": 18.0,
+        "min_speed_mps": 0.0,
+        "max_vertical_speed_mps": 4.0,
+        "max_turn_rate_deg_s": 48.0,
+        "battery_discharge_rate": 10.0
+      },
+      "flight_plan": {
+        "waypoints": [
+          [
+            300.0,
+            195.0,
+            -230.0
+          ],
+          [
+            -300.0,
+            195.0,
+            370.0
+          ]
+        ],
+        "current_waypoint_index": 1
+      }
+    },
+    {
+      "id": "U32",
+      "departure_time_s": 0.0,
+      "aircraft_kind": "Rotorcraft",
+      "performance": {
+        "mass_kg": 1.5,
+        "max_speed_mps": 18.0,
+        "min_speed_mps": 0.0,
+        "max_vertical_speed_mps": 4.0,
+        "max_turn_rate_deg_s": 48.0,
+        "battery_discharge_rate": 10.0
+      },
+      "flight_plan": {
+        "waypoints": [
+          [
+            -300.0,
+            195.0,
+            370.0
+          ],
+          [
+            300.0,
+            195.0,
+            -230.0
+          ]
+        ],
+        "current_waypoint_index": 1
+      }
+    }
+  ],
+  "obstacles": [
+    {
+      "id": "BLD_01",
+      "geometry_type": "Box",
+      "dimensions": [
+        160,
+        70,
+        150
+      ],
+      "position": [
+        -430,
+        35.0,
+        280
+      ]
+    },
+    {
+      "id": "BLD_02",
+      "geometry_type": "Box",
+      "dimensions": [
+        160,
+        70,
+        150
+      ],
+      "position": [
+        430,
+        35.0,
+        280
+      ]
+    },
+    {
+      "id": "BLD_03",
+      "geometry_type": "Box",
+      "dimensions": [
+        160,
+        70,
+        150
+      ],
+      "position": [
+        -430,
+        35.0,
+        -280
+      ]
+    },
+    {
+      "id": "BLD_04",
+      "geometry_type": "Box",
+      "dimensions": [
+        160,
+        70,
+        150
+      ],
+      "position": [
+        430,
+        35.0,
+        -280
+      ]
+    },
+    {
+      "id": "BLD_05",
+      "geometry_type": "Box",
+      "dimensions": [
+        140,
+        90,
+        70
+      ],
+      "position": [
+        -430,
+        45.0,
+        0
+      ]
+    },
+    {
+      "id": "BLD_06",
+      "geometry_type": "Box",
+      "dimensions": [
+        140,
+        90,
+        70
+      ],
+      "position": [
+        430,
+        45.0,
+        0
+      ]
+    },
+    {
+      "id": "BLD_07",
+      "geometry_type": "Box",
+      "dimensions": [
+        70,
+        90,
+        140
+      ],
+      "position": [
+        0,
+        45.0,
+        430
+      ]
+    },
+    {
+      "id": "BLD_08",
+      "geometry_type": "Box",
+      "dimensions": [
+        70,
+        90,
+        140
+      ],
+      "position": [
+        0,
+        45.0,
+        -430
+      ]
+    },
+    {
+      "id": "BLD_09",
+      "geometry_type": "Box",
+      "dimensions": [
+        110,
+        40,
+        90
+      ],
+      "position": [
+        -250,
+        20.0,
+        430
+      ]
+    },
+    {
+      "id": "BLD_10",
+      "geometry_type": "Box",
+      "dimensions": [
+        110,
+        40,
+        90
+      ],
+      "position": [
+        250,
+        20.0,
+        430
+      ]
+    },
+    {
+      "id": "BLD_11",
+      "geometry_type": "Box",
+      "dimensions": [
+        110,
+        40,
+        90
+      ],
+      "position": [
+        -250,
+        20.0,
+        -430
+      ]
+    },
+    {
+      "id": "BLD_12",
+      "geometry_type": "Box",
+      "dimensions": [
+        110,
+        40,
+        90
+      ],
+      "position": [
+        250,
+        20.0,
+        -430
+      ]
+    }
+  ],
+  "departure_landing_zones": []
+}
