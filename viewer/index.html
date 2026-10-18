@@ -158,6 +158,133 @@
             font-variant-numeric: tabular-nums;
         }
 
+        /* Saturated-demo playback: labels only, no side chrome. */
+        body.demo-saturated #panelTopBar,
+        body.demo-saturated #optionsPanel,
+        body.demo-saturated #controls,
+        body.demo-saturated #ui {
+            display: none !important;
+        }
+
+        #demoHud {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            pointer-events: none;
+            font-family: "Segoe UI", Helvetica, Arial, sans-serif;
+        }
+
+        body.demo-saturated #demoHud {
+            display: block;
+        }
+
+        #demoHud .demo-top {
+            position: absolute;
+            top: 28px;
+            left: 36px;
+            right: 36px;
+            max-width: 920px;
+        }
+
+        #demoHud .demo-kicker {
+            display: inline-block;
+            letter-spacing: 0.14em;
+            font-size: 15px;
+            font-weight: 700;
+            color: #9be7ff;
+            background: rgba(0, 0, 0, 0.55);
+            border: 1px solid rgba(155, 231, 255, 0.45);
+            border-radius: 999px;
+            padding: 4px 12px;
+            margin-bottom: 10px;
+        }
+
+        #demoHud .demo-title {
+            margin: 0;
+            font-size: 40px;
+            line-height: 1.12;
+            font-weight: 760;
+            color: #fff;
+            text-shadow: 0 2px 16px rgba(0, 0, 0, 0.85);
+        }
+
+        #demoHud .demo-sub {
+            margin: 8px 0 0 0;
+            font-size: 22px;
+            line-height: 1.3;
+            color: #e7e7e7;
+            text-shadow: 0 2px 12px rgba(0, 0, 0, 0.9);
+        }
+
+        #demoHud .demo-legend {
+            position: absolute;
+            left: 36px;
+            bottom: 28px;
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+
+        #demoHud .chip {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(0, 0, 0, 0.62);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 16px;
+            color: #f2f2f2;
+        }
+
+        #demoHud .swatch {
+            width: 22px;
+            height: 8px;
+            border-radius: 2px;
+        }
+
+        #demoHud .swatch.dashed {
+            background: #f4f7fb;
+            height: 3px;
+        }
+
+        #demoHud .swatch.solid {
+            background: #ffb703;
+            height: 6px;
+        }
+
+        #demoHud .swatch.wedge {
+            width: 22px;
+            height: 12px;
+            border-radius: 2px;
+            background: rgba(72, 176, 214, 0.85);
+        }
+
+        #demoInsetFrame {
+            display: none;
+            position: fixed;
+            z-index: 45;
+            pointer-events: none;
+            border: 2px solid rgba(126, 214, 255, 0.95);
+            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+            border-radius: 8px;
+        }
+
+        #demoInsetFrame .inset-tag {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: #102833;
+            color: #d7f4ff;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            padding: 2px 8px;
+            border-radius: 4px;
+            border: 1px solid rgba(126, 214, 255, 0.85);
+        }
+
         /* Telemetry load progress */
         #loadProgressWrap {
             display: none;
@@ -392,6 +519,20 @@
         </div>
     </div>
 
+    <div id="demoHud" aria-hidden="true">
+        <div class="demo-top">
+            <div class="demo-kicker" id="demoKicker">SATURATED TRAFFIC</div>
+            <h1 class="demo-title" id="demoTitle">Too many aircraft, one intersection</h1>
+            <p class="demo-sub" id="demoSub">Crossing streams fill the same city airspace.</p>
+        </div>
+        <div class="demo-legend">
+            <div class="chip"><span class="swatch wedge"></span>Corridor</div>
+            <div class="chip"><span class="swatch dashed"></span>Planned centerline</div>
+            <div class="chip"><span class="swatch solid"></span>Flown path</div>
+        </div>
+    </div>
+    <div id="demoInsetFrame" aria-hidden="true"><span class="inset-tag">ONE AIRCRAFT</span></div>
+
     <script>
         // --- 1. Three.js Setup ---
         const container = document.getElementById('canvas-container');
@@ -400,6 +541,7 @@
 
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 50000);
         camera.position.set(2000, 2000, 2000);
+        const insetCamera = new THREE.PerspectiveCamera(42, 1.6, 1, 50000);
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -433,6 +575,9 @@
         let totalTime = 0;
         let playbackSpeed = 1;
         let clock = new THREE.Clock();
+        let saturatedDemo = null;
+        let demoCorridors = [];
+        let focusTrail = null;
         let entityScale = 1.0;
 
         let backgroundMapMesh = null;
@@ -845,6 +990,7 @@
                 new THREE.BoxGeometry(20, 5, 20),
                 new THREE.MeshLambertMaterial({ color: 0x333333 })
             );
+            body.name = 'airframe';
             group.add(body);
 
             const armGeom = new THREE.BoxGeometry(40, 2, 2);
@@ -852,10 +998,12 @@
 
             const arm1 = new THREE.Mesh(armGeom, armMat);
             arm1.rotation.y = Math.PI / 4;
+            arm1.name = 'rotor_arm';
             group.add(arm1);
 
             const arm2 = new THREE.Mesh(armGeom, armMat);
             arm2.rotation.y = -Math.PI / 4;
+            arm2.name = 'rotor_arm';
             group.add(arm2);
 
             const rotorGeom = new THREE.CylinderGeometry(8, 8, 1, 16);
@@ -987,7 +1135,9 @@
                     droneTimelines.get(entry.drone_id).push({
                         t: t,
                         pos: new Float32Array(entry.position),
-                        alerts: entry.collision_alerts || []
+                        vel: entry.velocity ? new Float32Array(entry.velocity) : null,
+                        alerts: entry.collision_alerts || [],
+                        reactive: !!entry.has_reactive_target
                     });
 
                     frameCount++;
@@ -1358,9 +1508,9 @@
                 const geom = new THREE.BufferGeometry().setFromPoints([pts[0], pts[1]]);
                 const mat = new THREE.LineDashedMaterial({
                     color: colorForDroneId(r.id),
+                    transparent: true,
                     dashSize: 45,
                     gapSize: 28,
-                    transparent: true,
                     opacity: 0.78,
                     // Prevent depth-buffer "fight" with the ground grid when the camera angle changes.
                     depthWrite: false
@@ -1522,6 +1672,7 @@
             updateUI();
             renderFrame(0);
             refreshBackgroundMapTextureIfEnabled(true);
+            maybeStartSaturatedDemo();
         }
 
         function clearStaticObjects() {
@@ -1580,9 +1731,12 @@
             const y = prev.pos[1] + (next.pos[1] - prev.pos[1]) * progress;
             const z = prev.pos[2] + (next.pos[2] - prev.pos[2]) * progress;
 
+            const vel = prev.vel ? [prev.vel[0], prev.vel[1], prev.vel[2]] : null;
             return {
                 pos: [x, y, z],
-                alerts: prev.alerts
+                vel,
+                alerts: prev.alerts,
+                reactive: !!prev.reactive
             };
         }
 
@@ -1891,8 +2045,732 @@
             renderFrame(currentTime);
         });
 
+        function crossTrackM(pos, waypoints) {
+            if (!waypoints || waypoints.length < 2) return 0;
+            const a = waypoints[0];
+            const b = waypoints[waypoints.length - 1];
+            const abx = b[0] - a[0];
+            const abz = b[2] - a[2];
+            const ab2 = abx * abx + abz * abz;
+            if (ab2 < 1) return 0;
+            let u = ((pos[0] - a[0]) * abx + (pos[2] - a[2]) * abz) / ab2;
+            u = Math.max(0, Math.min(1, u));
+            const cx = a[0] + abx * u;
+            const cz = a[2] + abz * u;
+            return Math.hypot(pos[0] - cx, pos[2] - cz);
+        }
+
+        function routeWaypoints(id) {
+            if (!metadata || !metadata.drone_routes) return null;
+            const r = metadata.drone_routes.find(x => x.id === id);
+            return r ? r.waypoints : null;
+        }
+
+        function alertHasBand(alerts) {
+            return (alerts || []).some(a => (a.min_safe_heading || 0) !== 0 || (a.max_safe_heading || 0) !== 0);
+        }
+
+        /** Time and aircraft where DAIDALUS bands and a visible path bend overlap. */
+        function pickSaturatedFocus() {
+            const ids = Array.from(droneTimelines.keys());
+            let best = null;
+            const tEnd = Math.max(1, totalTime);
+            for (let t = 1; t <= tEnd; t += 1) {
+                let banded = 0;
+                let reactive = 0;
+                let xtSum = 0;
+                let xtN = 0;
+                let cx = 0, cy = 0, cz = 0, n = 0;
+                let focus = null;
+                for (const id of ids) {
+                    const s = getInterpolatedState(droneTimelines.get(id), t);
+                    if (!s) continue;
+                    n++;
+                    cx += s.pos[0];
+                    cy += s.pos[1];
+                    cz += s.pos[2];
+                    const wps = routeWaypoints(id);
+                    const xt = wps ? crossTrackM(s.pos, wps) : 0;
+                    const hasBand = alertHasBand(s.alerts);
+                    if (s.reactive) reactive++;
+                    if (hasBand) {
+                        banded++;
+                        xtSum += xt;
+                        xtN++;
+                        const centrality = 500 - Math.hypot(s.pos[0], s.pos[2]);
+                        const score = xt + (s.reactive ? 15 : 0) + centrality * 0.2;
+                        if (!focus || score > focus.score) {
+                            focus = { id, score, xt, pos: [s.pos[0], s.pos[1], s.pos[2]] };
+                        }
+                    }
+                }
+                if (n < 4 || !focus) continue;
+                const meanXt = xtN ? xtSum / xtN : 0;
+                const record = {
+                    t,
+                    score: banded + focus.xt,
+                    banded,
+                    reactive,
+                    meanXt,
+                    focusId: focus.id,
+                    centroid: [cx / n, cy / n, cz / n]
+                };
+                if (!best) best = record;
+                // First moment the resolution bend is visible while traffic is still packed on the plan.
+                if (focus.xt >= 28 && focus.xt <= 55) return record;
+            }
+            return best;
+        }
+
+        function placeCamera(cam, look, dist, elevDeg, azDeg) {
+            const el = elevDeg * Math.PI / 180;
+            const az = azDeg * Math.PI / 180;
+            cam.position.set(
+                look[0] + dist * Math.cos(el) * Math.sin(az),
+                look[1] + dist * Math.sin(el),
+                look[2] + dist * Math.cos(el) * Math.cos(az)
+            );
+            cam.up.set(0, 1, 0);
+            cam.lookAt(look[0], look[1], look[2]);
+        }
+
+        function soloCameraFrame(simT) {
+            const id = saturatedDemo.focusId;
+            const s = getInterpolatedState(droneTimelines.get(id), simT);
+            const wps = routeWaypoints(id);
+            const pos = s ? s.pos : saturatedDemo.centroid;
+            let cx = pos[0];
+            let cz = pos[2];
+            let rx = 0;
+            let rz = 1;
+            if (wps && wps.length >= 2) {
+                const a = wps[0];
+                const b = wps[wps.length - 1];
+                const abx = b[0] - a[0];
+                const abz = b[2] - a[2];
+                const ab2 = abx * abx + abz * abz || 1;
+                let u = ((pos[0] - a[0]) * abx + (pos[2] - a[2]) * abz) / ab2;
+                u = Math.max(0, Math.min(1, u));
+                cx = a[0] + abx * u;
+                cz = a[2] + abz * u;
+                const rl = Math.hypot(abx, abz) || 1;
+                rx = abx / rl;
+                rz = abz / rl;
+            }
+            const look = [(pos[0] + cx) * 0.5, pos[1], (pos[2] + cz) * 0.5];
+            const px = -rz;
+            const pz = rx;
+            const side = (pos[0] - cx) * px + (pos[2] - cz) * pz;
+            const sign = side >= 0 ? 1 : -1;
+            const dist = 128;
+            return {
+                look,
+                cam: [
+                    look[0] + px * sign * dist - rx * 42,
+                    pos[1] + 58,
+                    look[2] + pz * sign * dist - rz * 42
+                ]
+            };
+        }
+
+        function focusLookAt(simT) {
+            const id = saturatedDemo.focusId;
+            const s = getInterpolatedState(droneTimelines.get(id), simT);
+            if (!s) return saturatedDemo.centroid.slice();
+            return [s.pos[0], s.pos[1], s.pos[2]];
+        }
+
+        function simTimeForWall(wall, tZoom) {
+            const pre = Math.max(1, tZoom - 3.2);
+            if (wall < 3.2) {
+                return pre + (wall / 3.2) * (tZoom - pre);
+            }
+            const from = tZoom;
+            const to = Math.min(totalTime, tZoom + 8);
+            const u = Math.min(1, (wall - 3.2) / 6.8);
+            return from + (to - from) * u;
+        }
+
+        function routeIsStreet(id) {
+            const wps = routeWaypoints(id);
+            if (!wps || wps.length < 2) return false;
+            const a = wps[0];
+            const b = wps[wps.length - 1];
+            return Math.abs(a[0] - b[0]) < 12 || Math.abs(a[2] - b[2]) < 12;
+        }
+
+        let demoWideCam = null;
+        function wideMapCamera(w, h) {
+            if (!demoWideCam) demoWideCam = new THREE.PerspectiveCamera(34, 1, 2, 9000);
+            demoWideCam.aspect = w / Math.max(1, h);
+            demoWideCam.position.set(260, 520, 860);
+            demoWideCam.up.set(0, 1, 0);
+            demoWideCam.lookAt(-20, 70, -30);
+            demoWideCam.updateProjectionMatrix();
+            return demoWideCam;
+        }
+
+        function buildDemoCity() {
+            if (scene.getObjectByName('demo_city')) return;
+            const city = new THREE.Group();
+            city.name = 'demo_city';
+            const ground = new THREE.Mesh(
+                new THREE.PlaneGeometry(3400, 3400),
+                new THREE.MeshLambertMaterial({ color: 0x5c8a55 })
+            );
+            ground.rotation.x = -Math.PI / 2;
+            city.add(ground);
+            const lines = [-450, -150, 150, 450];
+            const asphalt = new THREE.MeshLambertMaterial({ color: 0x3c434b });
+            lines.forEach(z => {
+                const road = new THREE.Mesh(new THREE.PlaneGeometry(1800, 64), asphalt);
+                road.rotation.x = -Math.PI / 2;
+                road.position.set(0, 0.4, z);
+                city.add(road);
+            });
+            lines.forEach(x => {
+                const road = new THREE.Mesh(new THREE.PlaneGeometry(64, 1800), asphalt);
+                road.rotation.x = -Math.PI / 2;
+                road.position.set(x, 0.5, 0);
+                city.add(road);
+            });
+            const park = new THREE.Mesh(
+                new THREE.PlaneGeometry(230, 220),
+                new THREE.MeshLambertMaterial({ color: 0x3e9a4e })
+            );
+            park.rotation.x = -Math.PI / 2;
+            park.position.set(300, 0.6, -300);
+            city.add(park);
+            const water = new THREE.Mesh(
+                new THREE.PlaneGeometry(3400, 90),
+                new THREE.MeshLambertMaterial({ color: 0x3d7ea6 })
+            );
+            water.rotation.x = -Math.PI / 2;
+            water.position.set(0, 0.2, -980);
+            city.add(water);
+            const roofs = [0xddd6c8, 0xb7b1a4, 0x8d98a1, 0xc6aa8c, 0x6e7c86, 0xe7e2d8, 0x9a7b66];
+            const edges = [-900, -450, -150, 150, 450, 900];
+            let seed = 19;
+            const rnd = () => {
+                seed = (seed * 48271) % 2147483647;
+                return (seed & 0x7fffffff) / 2147483647;
+            };
+            for (let ix = 0; ix < edges.length - 1; ix++) {
+                for (let iz = 0; iz < edges.length - 1; iz++) {
+                    const x0 = edges[ix] + 46;
+                    const x1 = edges[ix + 1] - 46;
+                    const z0 = edges[iz] + 46;
+                    const z1 = edges[iz + 1] - 46;
+                    if (x1 - x0 < 36 || z1 - z0 < 36) continue;
+                    const cx = (x0 + x1) / 2;
+                    const cz = (z0 + z1) / 2;
+                    if (Math.abs(cx - 300) < 90 && Math.abs(cz + 300) < 90) continue;
+                    const cols = (x1 - x0) > 150 ? 2 : 1;
+                    const rows = (z1 - z0) > 150 ? 2 : 1;
+                    for (let c = 0; c < cols; c++) {
+                        for (let r = 0; r < rows; r++) {
+                            const bw = (x1 - x0) / cols;
+                            const bd = (z1 - z0) / rows;
+                            const inset = 7 + rnd() * 12;
+                            const w = bw - inset * 2;
+                            const d = bd - inset * 2;
+                            if (w < 16 || d < 16) continue;
+                            const h = 14 + rnd() * 58;
+                            const mesh = new THREE.Mesh(
+                                new THREE.BoxGeometry(w, h, d),
+                                new THREE.MeshLambertMaterial({ color: roofs[Math.floor(rnd() * roofs.length)] })
+                            );
+                            mesh.position.set(x0 + bw * (c + 0.5), h / 2, z0 + bd * (r + 0.5));
+                            city.add(mesh);
+                        }
+                    }
+                }
+            }
+            scene.add(city);
+        }
+
+        function laneKeyFromWaypoints(wps) {
+            if (!wps || wps.length < 2) return '';
+            const a = wps[0];
+            const b = wps[wps.length - 1];
+            const pack = (p) => [p[0], p[1], p[2]].map(v => Math.round(v)).join(',');
+            const s1 = pack(a);
+            const s2 = pack(b);
+            return s1 < s2 ? s1 + '|' + s2 : s2 + '|' + s1;
+        }
+
+        function mergedLaneKey(wps) {
+            if (!wps || wps.length < 2) return '';
+            const a = wps[0];
+            const b = wps[wps.length - 1];
+            const alongX = Math.abs(a[0] - b[0]);
+            const alongZ = Math.abs(a[2] - b[2]);
+            if (alongZ <= 12 && alongX > 12) return 'z:' + Math.round((a[2] + b[2]) / 2);
+            if (alongX <= 12 && alongZ > 12) return 'x:' + Math.round((a[0] + b[0]) / 2);
+            return '';
+        }
+
+        function buildDemoCorridors() {
+            demoCorridors.forEach(mesh => {
+                scene.remove(mesh);
+                if (mesh.geometry) mesh.geometry.dispose();
+            });
+            demoCorridors = [];
+            if (!metadata || !metadata.drone_routes) return;
+            const lanes = new Map();
+            metadata.drone_routes.forEach(route => {
+                const wps = route.waypoints;
+                const key = mergedLaneKey(wps);
+                if (!key) return;
+                if (!lanes.has(key)) lanes.set(key, []);
+                lanes.get(key).push(wps[0], wps[wps.length - 1]);
+            });
+            lanes.forEach((pts, key) => {
+                let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+                const y = 100;
+                pts.forEach(p => {
+                    minX = Math.min(minX, p[0]);
+                    maxX = Math.max(maxX, p[0]);
+                    minZ = Math.min(minZ, p[2]);
+                    maxZ = Math.max(maxZ, p[2]);
+                });
+                const eastWest = key.startsWith('z:');
+                if (eastWest) { minX -= 30; maxX += 30; }
+                else { minZ -= 30; maxZ += 30; }
+                const a = eastWest ? [minX, y, (minZ + maxZ) / 2] : [(minX + maxX) / 2, y, minZ];
+                const b = eastWest ? [maxX, y, (minZ + maxZ) / 2] : [(minX + maxX) / 2, y, maxZ];
+                const dx = b[0] - a[0];
+                const dy = b[1] - a[1];
+                const dz = b[2] - a[2];
+                const len = Math.hypot(dx, dy, dz);
+                if (len < 2) return;
+                const group = new THREE.Group();
+                group.userData.laneKey = key;
+                const slab = new THREE.Mesh(
+                    new THREE.BoxGeometry(54, 8, len),
+                    new THREE.MeshBasicMaterial({
+                        color: 0x3aa0c8,
+                        transparent: true,
+                        opacity: 0.5,
+                        depthWrite: false
+                    })
+                );
+                const dir = new THREE.Vector3(dx, dy, dz).normalize();
+                slab.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
+                slab.position.set((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2);
+                slab.renderOrder = 1;
+                group.add(slab);
+                const lineGeom = new THREE.BufferGeometry().setFromPoints([
+                    new THREE.Vector3(a[0], a[1] + 5, a[2]),
+                    new THREE.Vector3(b[0], b[1] + 5, b[2])
+                ]);
+                const line = new THREE.Line(lineGeom, new THREE.LineBasicMaterial({
+                    color: 0xf7fbff,
+                    transparent: true,
+                    opacity: 0.9
+                }));
+                line.frustumCulled = false;
+                line.renderOrder = 2;
+                group.add(line);
+                group.frustumCulled = false;
+                scene.add(group);
+                demoCorridors.push(group);
+            });
+        }
+
+        function hideDemoClutter() {
+            dronePads.forEach(pads => {
+                if (pads.departure) pads.departure.visible = false;
+                if (pads.landing) pads.landing.visible = false;
+            });
+            restrictedAreaMeshes.forEach(mesh => { mesh.visible = false; });
+            if (backgroundMapMesh) backgroundMapMesh.visible = false;
+        }
+
+        function smoothTrail(pts) {
+            if (!pts || pts.length < 3) return pts || [];
+            const out = [];
+            const nSeg = 5;
+            for (let i = 0; i < pts.length - 1; i++) {
+                const p0 = pts[Math.max(0, i - 1)];
+                const p1 = pts[i];
+                const p2 = pts[i + 1];
+                const p3 = pts[Math.min(pts.length - 1, i + 2)];
+                for (let s = 0; s < nSeg; s++) {
+                    const t = s / nSeg;
+                    const t2 = t * t;
+                    const t3 = t2 * t;
+                    out.push(new THREE.Vector3(
+                        0.5 * ((2 * p1.x) + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
+                        0.5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3),
+                        0.5 * ((2 * p1.z) + (-p0.z + p2.z) * t + (2 * p0.z - 5 * p1.z + 4 * p2.z - p3.z) * t2 + (-p0.z + 3 * p1.z - 3 * p2.z + p3.z) * t3)
+                    ));
+                }
+            }
+            out.push(pts[pts.length - 1].clone());
+            return out;
+        }
+
+        function dressDemoAircraft(solo) {
+            const focusId = saturatedDemo.focusId;
+            droneObjects.forEach((group, id) => {
+                if (!group.getObjectByName('demo_glyph')) {
+                    const glyph = new THREE.Mesh(
+                        new THREE.ConeGeometry(8, 30, 3),
+                        new THREE.MeshBasicMaterial({
+                            color: 0xf4fbff,
+                            transparent: true,
+                            opacity: 1,
+                            depthTest: false,
+                            depthWrite: false
+                        })
+                    );
+                    glyph.rotation.x = Math.PI / 2;
+                    glyph.position.y = 24;
+                    glyph.renderOrder = 30;
+                    glyph.frustumCulled = false;
+                    glyph.name = 'demo_glyph';
+                    group.add(glyph);
+                }
+                if (!group.getObjectByName('demo_ship')) {
+                    const ship = new THREE.Group();
+                    ship.name = 'demo_ship';
+                    const hull = new THREE.Mesh(
+                        new THREE.BoxGeometry(6, 2.4, 16),
+                        new THREE.MeshBasicMaterial({ color: 0xf4f7fb })
+                    );
+                    ship.add(hull);
+                    const nose = new THREE.Mesh(
+                        new THREE.ConeGeometry(3, 8, 4),
+                        new THREE.MeshBasicMaterial({ color: 0xffffff })
+                    );
+                    nose.rotation.x = Math.PI / 2;
+                    nose.position.z = -11;
+                    ship.add(nose);
+                    const wing = new THREE.Mesh(
+                        new THREE.BoxGeometry(20, 0.7, 4.5),
+                        new THREE.MeshBasicMaterial({ color: 0xd5dee8 })
+                    );
+                    wing.position.z = 1;
+                    ship.add(wing);
+                    group.add(ship);
+                }
+                const mine = id === focusId;
+                group.traverse(obj => {
+                    if (obj === group) return;
+                    if (obj.name === 'demo_glyph') {
+                        obj.visible = false;
+                        return;
+                    }
+                    if (obj.name === 'demo_ship' || (obj.parent && obj.parent.name === 'demo_ship')) {
+                        obj.visible = true;
+                        if (obj.material && obj.material.color) {
+                            obj.material.color.setHex(!solo && mine ? 0xffb703 : 0xf7fbff);
+                        }
+                        return;
+                    }
+                    obj.visible = false;
+                });
+            });
+        }
+
+        function orientDemoAircraft() {
+            droneObjects.forEach((group, id) => {
+                if (!group.visible) return;
+                const s = getInterpolatedState(droneTimelines.get(id), currentTime);
+                if (!s || !s.vel) return;
+                const vx = s.vel[0];
+                const vz = s.vel[2];
+                if (vx * vx + vz * vz < 0.25) return;
+                group.lookAt(group.position.x + vx, group.position.y, group.position.z + vz);
+            });
+        }
+
+        function updateFocusTrail(solo) {
+            if (!focusTrail) {
+                focusTrail = new THREE.Mesh(
+                    new THREE.BufferGeometry(),
+                    new THREE.MeshBasicMaterial({
+                        color: 0xffb703,
+                        side: THREE.DoubleSide,
+                        transparent: true,
+                        opacity: 0.95,
+                        depthWrite: false
+                    })
+                );
+                focusTrail.frustumCulled = false;
+                focusTrail.renderOrder = 3;
+                scene.add(focusTrail);
+            }
+            if (!solo) {
+                focusTrail.visible = false;
+                return;
+            }
+            const tl = droneTimelines.get(saturatedDemo.focusId);
+            const { behindS, aheadS } = getRouteWindowParams();
+            const pts = smoothTrail(pointsForExecutedWindowed(tl, currentTime, behindS, aheadS));
+            if (!pts || pts.length < 2) {
+                focusTrail.visible = false;
+                return;
+            }
+            const half = 2.4;
+            const positions = [];
+            const indices = [];
+            for (let i = 0; i < pts.length; i++) {
+                const prev = pts[Math.max(0, i - 1)];
+                const next = pts[Math.min(pts.length - 1, i + 1)];
+                let dx = next.x - prev.x;
+                let dz = next.z - prev.z;
+                const h = Math.hypot(dx, dz) || 1;
+                dx /= h;
+                dz /= h;
+                const px = -dz * half;
+                const pz = dx * half;
+                positions.push(pts[i].x + px, pts[i].y + 2, pts[i].z + pz);
+                positions.push(pts[i].x - px, pts[i].y + 2, pts[i].z - pz);
+            }
+            for (let i = 0; i < pts.length - 1; i++) {
+                const a = i * 2;
+                indices.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+            }
+            focusTrail.geometry.dispose();
+            const geom = new THREE.BufferGeometry();
+            geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            geom.setIndex(indices);
+            focusTrail.geometry = geom;
+            focusTrail.visible = true;
+        }
+
+        function setDemoCopy(wall) {
+            const kicker = document.getElementById('demoKicker');
+            const title = document.getElementById('demoTitle');
+            const sub = document.getElementById('demoSub');
+            let beat = 'wide';
+            if (wall < 3.15) {
+                kicker.textContent = 'SATURATED CORRIDORS';
+                title.textContent = 'Corridors cross above the city';
+                sub.textContent = 'The lanes are full.';
+                beat = 'wide';
+            } else if (wall < 6.4) {
+                kicker.textContent = 'ONE AIRCRAFT';
+                title.textContent = 'DAIDALUS turns it out of the lane';
+                sub.textContent = 'The amber path is the avoidance. Everything else stays back.';
+                beat = 'closeup';
+            } else {
+                kicker.textContent = 'AVOIDANCE';
+                title.textContent = 'It has left the corridor';
+                sub.textContent = 'The flown path bends off the white centerline to stay clear.';
+                beat = 'resolution';
+            }
+            if (window.__utmDemo) window.__utmDemo.beat = beat;
+        }
+
+        function applyDemoPicture(solo) {
+            hideDemoClutter();
+            const id = saturatedDemo.focusId;
+            const key = mergedLaneKey(routeWaypoints(id));
+            demoCorridors.forEach(group => {
+                const on = group.userData.laneKey === key;
+                group.visible = solo ? on : true;
+                const slab = group.children[0];
+                if (slab) {
+                    slab.scale.x = solo ? 0.42 : 1;
+                    if (slab.material) slab.material.opacity = solo ? 0.78 : (on ? 0.62 : 0.5);
+                }
+            });
+            plannedRouteLines.forEach(line => { line.visible = false; });
+            executedRouteLines.forEach(line => { line.visible = false; });
+            droneObjects.forEach((group, droneId) => {
+                const mine = droneId === id;
+                const street = routeIsStreet(droneId);
+                if (solo && !mine) group.visible = false;
+                else if (!solo && !street) group.visible = false;
+                else group.visible = true;
+                if (!solo) group.position.y = 118;
+                group.scale.setScalar(solo ? 1 : 1.45);
+            });
+            padObjects.forEach(mesh => { mesh.visible = false; });
+            const demoCity = scene.getObjectByName('demo_city');
+            if (demoCity) demoCity.visible = !solo;
+            const demoGround = scene.getObjectByName('demo_ground');
+            if (demoGround) demoGround.visible = !!solo;
+            scene.background = new THREE.Color(solo ? 0x10161c : 0x8eb4d2);
+            if (gridHelper) gridHelper.visible = false;
+            dressDemoAircraft(solo);
+            orientDemoAircraft();
+            updateFocusTrail(solo);
+        }
+
+        function maybeStartSaturatedDemo() {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('demo') !== 'saturated') return;
+            const picked = pickSaturatedFocus();
+            if (!picked) {
+                window.__utmDemo = { active: false, ready: true, error: 'no_focus', done: true };
+                return;
+            }
+            document.body.classList.add('demo-saturated');
+            document.getElementById('showSuggestions').checked = false;
+            document.getElementById('showSafeBand').checked = false;
+            document.getElementById('showRoutes').checked = false;
+            document.getElementById('showPlanned').checked = false;
+            document.getElementById('showExecuted').checked = false;
+            document.getElementById('showGrid').checked = false;
+            const restrictedEl = document.getElementById('showRestrictedAreas');
+            if (restrictedEl) restrictedEl.checked = false;
+            document.getElementById('routeWinBehindMin').value = '0.6';
+            document.getElementById('routeWinAheadMin').value = '0.05';
+            document.getElementById('routeAssumedSpeedMps').value = '18';
+            entityScale = 0.16;
+            applyEntityScaleAll();
+            applyGridVisibility();
+            buildDemoCorridors();
+            buildDemoCity();
+            controls.enabled = false;
+            isPlaying = false;
+            scene.background = new THREE.Color(0x10161c);
+            if (!scene.getObjectByName('demo_ground')) {
+                const ground = new THREE.Mesh(
+                    new THREE.PlaneGeometry(20000, 20000),
+                    new THREE.MeshBasicMaterial({ color: 0x121820 })
+                );
+                ground.rotation.x = -Math.PI / 2;
+                ground.position.y = -2;
+                ground.name = 'demo_ground';
+                scene.add(ground);
+            }
+            const bounds = gridBounds;
+            const centroid = picked.centroid;
+            if (bounds) {
+                centroid[0] = bounds.centerX;
+                centroid[2] = bounds.centerZ;
+            }
+            const manual = params.get('clock') === 'manual';
+            saturatedDemo = {
+                active: true,
+                started: performance.now(),
+                duration: 10,
+                wall: 0,
+                manual,
+                tZoom: picked.t,
+                focusId: picked.focusId,
+                centroid,
+                banded: picked.banded,
+                done: false
+            };
+            window.__utmDemo = {
+                active: true,
+                ready: true,
+                done: false,
+                beat: 'wide',
+                duration: 10,
+                manual,
+                tZoom: picked.t,
+                focusId: picked.focusId,
+                banded: picked.banded
+            };
+            window.__utmDemoSeek = (wall) => new Promise((resolve) => {
+                applyDemoWall(wall);
+                requestAnimationFrame(() => requestAnimationFrame(resolve));
+            });
+            applyDemoWall(0);
+        }
+
+        function applyDemoWall(wall) {
+            const clamped = Math.max(0, Math.min(saturatedDemo.duration, wall));
+            saturatedDemo.wall = clamped;
+            currentTime = simTimeForWall(clamped, saturatedDemo.tZoom);
+            setDemoCopy(clamped);
+            renderFrame(currentTime);
+            renderSaturatedDemoFrame(clamped);
+            const beat = clamped < 3.15 ? 'wide' : (clamped < 6.4 ? 'closeup' : 'resolution');
+            window.__utmDemo.wall = clamped;
+            window.__utmDemo.simTime = currentTime;
+            window.__utmDemo.beat = beat;
+            window.__utmDemo.done = clamped >= saturatedDemo.duration - 1e-6;
+            saturatedDemo.done = window.__utmDemo.done;
+        }
+
+        function stepSaturatedDemo() {
+            const wall = (performance.now() - saturatedDemo.started) / 1000;
+            applyDemoWall(wall);
+        }
+
+        function insetRectForWall(wall, w, h) {
+            const start = { x: w - 500 - 36, y: 40, w: 500, h: 310 };
+            const full = { x: 0, y: 0, w, h };
+            if (wall < 3.05) return Object.assign({ mode: 'inset' }, start);
+            if (wall >= 4.55) return Object.assign({ mode: 'full' }, full);
+            const u = (wall - 3.05) / (4.55 - 3.05);
+            const e = u * u * (3 - 2 * u);
+            return {
+                mode: 'grow',
+                x: start.x + (full.x - start.x) * e,
+                y: start.y + (full.y - start.y) * e,
+                w: start.w + (full.w - start.w) * e,
+                h: start.h + (full.h - start.h) * e
+            };
+        }
+
+        function renderSaturatedDemoFrame(wall) {
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            const solo = soloCameraFrame(currentTime);
+            const mapCam = wideMapCamera(w, h);
+            insetCamera.position.set(solo.cam[0], solo.cam[1], solo.cam[2]);
+            insetCamera.up.set(0, 1, 0);
+            insetCamera.lookAt(solo.look[0], solo.look[1], solo.look[2]);
+            insetCamera.aspect = 500 / 310;
+            insetCamera.updateProjectionMatrix();
+            camera.aspect = w / Math.max(1, h);
+            camera.updateProjectionMatrix();
+
+            const rect = insetRectForWall(wall, w, h);
+            const frame = document.getElementById('demoInsetFrame');
+            renderer.autoClear = false;
+            renderer.setScissorTest(false);
+            renderer.setViewport(0, 0, w, h);
+            renderer.clear(true, true, true);
+            if (rect.mode === 'full') {
+                applyDemoPicture(true);
+                camera.position.set(solo.cam[0], solo.cam[1], solo.cam[2]);
+                camera.up.set(0, 1, 0);
+                camera.lookAt(solo.look[0], solo.look[1], solo.look[2]);
+                camera.aspect = w / Math.max(1, h);
+                camera.updateProjectionMatrix();
+                renderer.render(scene, camera);
+                frame.style.display = 'none';
+                return;
+            }
+            applyDemoPicture(false);
+            renderer.render(scene, mapCam);
+            applyDemoPicture(true);
+            const iw = Math.max(2, Math.round(rect.w));
+            const ih = Math.max(2, Math.round(rect.h));
+            const ix = Math.round(rect.x);
+            const iy = Math.round(rect.y);
+            insetCamera.aspect = iw / ih;
+            insetCamera.updateProjectionMatrix();
+            renderer.setScissorTest(true);
+            renderer.setViewport(ix, iy, iw, ih);
+            renderer.setScissor(ix, iy, iw, ih);
+            renderer.clearDepth();
+            renderer.render(scene, insetCamera);
+            renderer.setScissorTest(false);
+            renderer.setViewport(0, 0, w, h);
+            frame.style.display = 'block';
+            frame.style.left = ix + 'px';
+            frame.style.top = (h - iy - ih) + 'px';
+            frame.style.width = iw + 'px';
+            frame.style.height = ih + 'px';
+        }
+
         function animate() {
             requestAnimationFrame(animate);
+            if (saturatedDemo && saturatedDemo.active) {
+                if (!saturatedDemo.manual) stepSaturatedDemo();
+                return;
+            }
             controls.update();
             if (isPlaying && totalTime > 0) {
                 currentTime += clock.getDelta() * playbackSpeed;
