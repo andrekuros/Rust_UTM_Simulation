@@ -1,6 +1,6 @@
 {
   "simulation": {
-    "duration": 22.0,
+    "duration": 24.0,
     "collision_threshold": 45.0,
     "show_progress_bar": true,
     "avoidance_mode": "Daidalus",
